@@ -1,0 +1,2 @@
+Sources used for implementing the Breakout bot:
+-https://www.cs.toronto.edu/~vmnih/docs/dqn.pdf (Basic model implementation used)
