@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import keras
 import random
+import collections
 
 # TODO Change environment to Breakout-v0 and implement frame skipping
 # TODO Research Hubber Loss
@@ -14,9 +15,10 @@ ACTIONS = [0, 3, 4]
 N_ACTIONS = 3
 
 '''Training params'''
-iterations = 100000
-eps = 1
-eps_subtract = 1e-6
+ITERATIONS = 100000
+EPS = 1
+EPS_SUBTRACT = 1e-6
+MEMORY_SIZE = 100000
 
 ################################################################
 '''Pre-processing Functions'''
@@ -119,16 +121,16 @@ def q_iteration(env, model, state, iteration, memory):
 
 
 def get_epsilon_for_iteration(iteration):
-    if eps > 0.1:
-        return eps - eps_subtract
-    return eps
+    if EPS > 0.1:
+        return EPS - EPS_SUBTRACT
+    return EPS
 
 def choose_best_action(model, state):
     best_action_index = np.argmax(model.predict([state, state, state], [1, 1, 1]))
     return ACTIONS[best_action_index]
 
 
-class RingBuf:
+'''class RingBuf:
     def __init__(self, size):
         # Pro-tip: when implementing a ring buffer, always allocate one extra element,
         # this way, self.start == self.end always means the buffer is EMPTY, whereas
@@ -161,32 +163,73 @@ class RingBuf:
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
+'''
 
-
-if __name__ == '__main__':
+def run():
     # Create a breakout environment
     env = gym.make('BreakoutDeterministic-v4')
     # Reset it, returns the starting frame
     frame = env.reset()
     # Render
-    #env.render()
+    # env.render()
     model = atari_model(N_ACTIONS)
 
     i = 0
-    memory = RingBuf(10000)
-    while iterations > i:
+    # memory = RingBuf(10000)
+    memory = collections.deque(100000)
+    while ITERATIONS > i:
         q_iteration(env, model, frame, i, memory)
 
     is_done = False
     while not is_done:
-            # Perform a random action, returns the new frame, reward and whether the game is over
-            frame, reward, is_done, _ = env.step(choose_best_action(model, frame))
-            # Render
-            env.render()
+        # Perform a random action, returns the new frame, reward and whether the game is over
+        frame, reward, is_done, _ = env.step(choose_best_action(model, frame))
+        # Render
+        env.render()
 
+def run_random():
     '''is_done = False
     while not is_done:
         # Perform a random action, returns the new frame, reward and whether the game is over
         frame, reward, is_done, _ = env.step(env.action_space.sample())
         # Render
         env.render()'''
+
+def memory_test():
+    # LIFO
+    '''memory = collections.deque([], 5)
+    memory.append((1, 2, 3))
+    print(memory.__len__())
+    memory.append((4, 5, 6))
+    print(memory.__len__())
+    memory.append((7, 8, 9))
+    print(memory.__len__())
+    print(memory.pop())
+    print(memory.__len__())
+    print(memory.pop())
+    print(memory.__len__())'''
+
+    # FIFO
+    memory = collections.deque([], 5)
+    memory.append((1, 2, 3))
+    print(memory.__len__())
+    memory.append((4, 5, 6))
+    print(memory.__len__())
+    memory.append((7, 8, 9))
+    print(memory.__len__())
+    memory.append((10, 11, 12))
+    print(memory.__len__())
+    memory.append((13, 14, 15))
+    print(memory.__len__())
+    memory.append((16, 17, 18))
+    print(memory.__len__())
+    print(memory.popleft()) # (4, 5, 6) is expected
+    print(memory.pop()) # (16, 17, 18) is expected
+
+if __name__ == '__main__':
+    #run()
+    #run_random()
+
+    #memory_test()
+
+
