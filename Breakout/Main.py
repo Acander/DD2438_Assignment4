@@ -13,13 +13,16 @@ import collections
 '''Constants'''
 ACTIONS = [0, 3, 4]
 N_ACTIONS = 3
+REPLAY_START_SIZE = 1
+STATE_SIZE = 4
 
 '''Training params'''
 ITERATIONS = 100000
 EPS = 1
 EPS_SUBTRACT = 1e-6
 MEMORY_SIZE = 100000
-BATCH_SIZE = 32
+BATCH_SIZE = 16
+GAMMA = 0.99
 
 ################################################################
 '''Pre-processing Functions'''
@@ -56,14 +59,14 @@ def fit_batch(model, batch):
     - is_terminal: numpy boolean array of whether the resulting state is terminal
 
     """
-    gamma, start_states, actions, rewards, next_states, is_terminal = batch
+    start_states, actions, rewards, next_states, is_terminal = map(list, zip(*batch))
 
     # First, predict the Q values of the next states. Note how we are passing ones as the mask.
-    next_Q_values = model.predict([next_states, np.ones(actions.shape)])
+    next_Q_values = model.predict([next_states, np.ones(np.shape(actions))])
     # The Q values of the terminal states is 0 by definition, so override them
     next_Q_values[is_terminal] = 0
     # The Q values of each start state is the reward + gamma * the max next state Q value
-    Q_values = rewards + gamma * np.max(next_Q_values, axis=1)
+    Q_values = rewards + GAMMA * np.max(next_Q_values, axis=1)
     # Fit the keras model. Note how we are passing the actions as the mask and multiplying
     # the targets by the actions.
     model.fit(
@@ -113,8 +116,8 @@ def q_iteration(env, model, state, iteration, memory):
         action = choose_best_action(model, state)
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
-    new_frame, reward, is_done, _ = env.step(action)
-    element = state, action, new_frame, reward, is_done
+    state, reward, is_done = construct_state(env, action)
+    element = state, action, reward, new_frame, is_done
     memory.append(element)
     # Sample and fit
     batch = memory_sample(memory)
@@ -127,52 +130,18 @@ def get_epsilon_for_iteration(iteration):
     return EPS
 
 def choose_best_action(model, state):
-    best_action_index = np.argmax(model.predict([state, state, state], [1, 1, 1]))
+    best_action_index = np.argmax(model.predict([state, state, state], ACTIONS))
     return ACTIONS[best_action_index]
 
 def memory_sample(memory):
     return random.sample(memory, BATCH_SIZE)
-
-'''class RingBuf:
-    def __init__(self, size):
-        # Pro-tip: when implementing a ring buffer, always allocate one extra element,
-        # this way, self.start == self.end always means the buffer is EMPTY, whereas
-        # if you allocate exactly the right number of elements, it could also mean
-        # the buffer is full. This greatly simplifies the rest of the code.
-        self.data = [None] * (size + 1)
-        self.start = 0
-        self.end = 0
-
-    def append(self, element):
-        self.data[self.end] = element
-        self.end = (self.end + 1) % len(self.data)
-        # end == start and yet we just added one element. This means the buffer has one
-        # too many element. Remove the first element by incrementing start.
-        if self.end == self.start:
-            self.start = (self.start + 1) % len(self.data)
-
-    def sample_batch(self, size):
-
-
-    def __getitem__(self, idx):
-        return self.data[(self.start + idx) % len(self.data)]
-
-    def __len__(self):
-        if self.end < self.start:
-            return self.end + len(self.data) - self.start
-        else:
-            return self.end - self.start
-
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
-'''
 
 def run():
     # Create a breakout environment
     env = gym.make('BreakoutDeterministic-v4')
     # Reset it, returns the starting frame
     frame = env.reset()
+    #print(np.shape(frame))
     # Render
     # env.render()
     model = atari_model(N_ACTIONS)
@@ -180,7 +149,9 @@ def run():
     i = 0
     # memory = RingBuf(10000)
     memory = collections.deque([], MEMORY_SIZE)
-    while ITERATIONS > i:
+    run_random_policy(env, memory)
+
+    '''while ITERATIONS > i:
         q_iteration(env, model, frame, i, memory)
 
     is_done = False
@@ -188,15 +159,40 @@ def run():
         # Perform a random action, returns the new frame, reward and whether the game is over
         frame, reward, is_done, _ = env.step(choose_best_action(model, frame))
         # Render
-        env.render()
+        env.render()'''
 
-def run_random():
-    '''is_done = False
+def run_random_policy(env, memory):
+    action = env.action_space.sample()
+    state, _, _ = construct_state(env, action)
+    i = 0
+    while i < REPLAY_START_SIZE:
+        # Perform a random action, returns the new frame, reward and whether the game is over
+        action = env.action_space.sample()
+        next_state, reward, is_done = construct_state(env, action)
+        element = state, action, reward, next_state, is_done
+        memory.append(element)
+        state = next_state
+        i += 1
+
+def construct_state(env, action):
+    state = []
+    reward = 0
+    is_done = False
+    for _ in range(STATE_SIZE):
+        new_frame, reward, is_done, _ = env.step(action)
+        new_frame = preprocess(new_frame)
+        state.append(new_frame)
+    print(state)
+    state = np.reshape(state, (105, 80, 4))
+    return state, reward, is_done
+
+def run_random(env):
+    is_done = False
     while not is_done:
         # Perform a random action, returns the new frame, reward and whether the game is over
         frame, reward, is_done, _ = env.step(env.action_space.sample())
         # Render
-        env.render()'''
+        env.render()
 
 def memory_test():
     # LIFO
@@ -231,15 +227,20 @@ def memory_test():
 
     #indeces = random.randint(5, 2)
     #print(memory.__getitem__(indeces))
-    print(random.sample(memory, 2))
+    #print(random.sample(memory, 2))
+
+    batch = random.sample(memory, 2)
+    print("Batch: ", batch)
+    first, second, last = map(list, zip(*batch))
+    print("First: ", first)
+    print("Second: ", second)
+    print("Last: ", last)
 
 if __name__ == '__main__':
-    #run()
+    run()
 
 ################################################################
     #Tests:
 
     #run_random()
-    memory_test()
-
-
+    #memory_test()
