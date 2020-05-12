@@ -2,6 +2,7 @@
 import gym
 import numpy as np
 import tensorflow as tf
+import keras
 import random
 
 # TODO Change environment to Breakout-v0 and implement frame skipping
@@ -39,7 +40,7 @@ def transform_reward(reward):
     return np.sign(reward)
 
 
-def fit_batch(model, gamma, start_states, actions, rewards, next_states, is_terminal):
+def fit_batch(model, batch):
     """Do one deep Q learning iteration.
 
     Params:
@@ -52,6 +53,8 @@ def fit_batch(model, gamma, start_states, actions, rewards, next_states, is_term
     - is_terminal: numpy boolean array of whether the resulting state is terminal
 
     """
+    gamma, start_states, actions, rewards, next_states, is_terminal = batch
+
     # First, predict the Q values of the next states. Note how we are passing ones as the mask.
     next_Q_values = model.predict([next_states, np.ones(actions.shape)])
     # The Q values of the terminal states is 0 by definition, so override them
@@ -65,40 +68,42 @@ def fit_batch(model, gamma, start_states, actions, rewards, next_states, is_term
 
 
 def atari_model(n_actions):
-    ATARI_SHAPE = (4, 105, 80)
+    # We assume a tensorflow backend here
+    ATARI_SHAPE = (105, 80, 4)
 
-    frames_input = tf.keras.layers.Input(ATARI_SHAPE, name='frames')
-    actions_input = tf.keras.layers.Input((n_actions), name='mask')
+    # With the functional API we need to define the inputs.
+    frames_input = keras.layers.Input(ATARI_SHAPE, name='frames')
+    actions_input = keras.layers.Input((n_actions,), name='mask')
 
-    normalized = tf.keras.layers.Lambda(lambda x: x / 255.0)(frames_input)
+    # Assuming that the input frames are still encoded from 0 to 255. Transforming to [0, 1].
+    normalized = keras.layers.Lambda(lambda x: x / 255.0)(frames_input)
 
     # "The first hidden layer convolves 16 8×8 filters with stride 4 with the input image and applies a rectifier nonlinearity."
-    conv1 = tf.keras.layers.convolutional.Convolution2D(16, 8, 8, subsample=(4, 4), activation='relu')(normalized)
-
+    conv_1 = keras.layers.convolutional.Convolution2D(16, (8, 8), strides=(4, 4), activation='relu')(normalized)
     # "The second hidden layer convolves 32 4×4 filters with stride 2, again followed by a rectifier nonlinearity."
-    conv2 = tf.keras.layers.convolutional.Convolution2D(32, 4, 4, subsample=(2, 2), actifation='relu')(conv1)
-
+    conv_2 = keras.layers.convolutional.Convolution2D(32, (4, 4), strides=(2, 2), activation='relu')(conv_1)
     # Flattening the second convolutional layer.
-    conv_flattened = tf.keras.core.Flatten()(conv2)
+    conv_flattened = keras.layers.core.Flatten()(conv_2)
     # "The final hidden layer is fully-connected and consists of 256 rectifier units."
-    hidden = tf.keras.layers.Dense(256, activation='relu')(conv_flattened)
+    hidden = keras.layers.Dense(256, activation='relu')(conv_flattened)
     # "The output layer is a fully-connected linear layer with a single output for each valid action."
-    output = tf.keras.layers.Dense(n_actions)(hidden)
+    output = keras.layers.Dense(n_actions)(hidden)
     # Finally, we multiply the output by the mask!
-    filtered_output = tf.keras.layers.merge([output, actions_input], mode='mul')
+    filtered_output = keras.layers.concatenate([output, actions_input])
+    #filtered_output = keras.layers.merge([output, actions_input], mode='mul')
 
-    model = tf.keras.models.Model(input=[frames_input, actions_input], output=filtered_output)
-    optimizer = optimizer = tf.keras.optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
-    model.complie(optimizer, loss='mse')
+    model = keras.models.Model(input=[frames_input, actions_input], output=filtered_output)
+    optimizer = optimizer = keras.optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
+    model.compile(optimizer, loss='mse')
 
     return model
-
 
 def q_iteration(env, model, state, iteration, memory):
     # Choose epsilon based on the iteration
     epsilon = get_epsilon_for_iteration(iteration)
     # Choose the action
     # Choose the action
+    #TODO Implement more sophisticated exploitation-exploration trade-off, should maybe be biased towards exploitation later on.
     if random.random() < epsilon:
         action = env.action_space.sample()
     else:
@@ -106,8 +111,8 @@ def q_iteration(env, model, state, iteration, memory):
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
     new_frame, reward, is_done, _ = env.step(action)
-    memory.add(state, action, new_frame, reward, is_done)
-
+    element = state, action, new_frame, reward, is_done
+    memory.append(element)
     # Sample and fit
     batch = memory.sample_batch(32)
     fit_batch(model, batch)
@@ -140,6 +145,9 @@ class RingBuf:
         # too many element. Remove the first element by incrementing start.
         if self.end == self.start:
             self.start = (self.start + 1) % len(self.data)
+
+    def sample_batch(self, size):
+
 
     def __getitem__(self, idx):
         return self.data[(self.start + idx) % len(self.data)]
