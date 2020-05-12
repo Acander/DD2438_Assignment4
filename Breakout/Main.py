@@ -19,6 +19,7 @@ ITERATIONS = 100000
 EPS = 1
 EPS_SUBTRACT = 1e-6
 MEMORY_SIZE = 100000
+BATCH_SIZE = 32
 
 ################################################################
 '''Pre-processing Functions'''
@@ -116,7 +117,7 @@ def q_iteration(env, model, state, iteration, memory):
     element = state, action, new_frame, reward, is_done
     memory.append(element)
     # Sample and fit
-    batch = memory.sample_batch(32)
+    batch = memory_sample(memory)
     fit_batch(model, batch)
 
 
@@ -129,6 +130,8 @@ def choose_best_action(model, state):
     best_action_index = np.argmax(model.predict([state, state, state], [1, 1, 1]))
     return ACTIONS[best_action_index]
 
+def memory_sample(memory):
+    return random.sample(memory, BATCH_SIZE)
 
 '''class RingBuf:
     def __init__(self, size):
@@ -176,7 +179,7 @@ def run():
 
     i = 0
     # memory = RingBuf(10000)
-    memory = collections.deque(100000)
+    memory = collections.deque([], MEMORY_SIZE)
     while ITERATIONS > i:
         q_iteration(env, model, frame, i, memory)
 
@@ -223,13 +226,20 @@ def memory_test():
     print(memory.__len__())
     memory.append((16, 17, 18))
     print(memory.__len__())
-    print(memory.popleft()) # (4, 5, 6) is expected
-    print(memory.pop()) # (16, 17, 18) is expected
+    #print(memory.popleft()) # (4, 5, 6) is expected
+    #print(memory.pop()) # (16, 17, 18) is expected
+
+    #indeces = random.randint(5, 2)
+    #print(memory.__getitem__(indeces))
+    print(random.sample(memory, 2))
 
 if __name__ == '__main__':
     #run()
-    #run_random()
 
-    #memory_test()
+################################################################
+    #Tests:
+
+    #run_random()
+    memory_test()
 
 
