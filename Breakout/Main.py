@@ -117,7 +117,7 @@ def q_iteration(env, model, state, iteration, memory):
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
     state, reward, is_done = construct_state(env, action)
-    element = state, action, reward, new_frame, is_done
+    element = state, action, reward, state, is_done
     memory.append(element)
     # Sample and fit
     batch = memory_sample(memory)
