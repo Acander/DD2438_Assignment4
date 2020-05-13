@@ -9,11 +9,15 @@ import collections
 # TODO Change environment to Breakout-v0 and implement frame skipping
 # TODO Research Hubber Loss
 # TODO read up on eps-greedy
+# TODO Check how states should be constructed, with or without overlap
 
 '''Constants'''
 ACTIONS = [0, 3, 4]
+ACTIONS_encoded = [[1, 0, 0],
+                    [0, 1, 0],
+                    [0, 0, 1]]
 N_ACTIONS = 3
-REPLAY_START_SIZE = 1
+REPLAY_START_SIZE = 5000
 STATE_SIZE = 4
 
 '''Training params'''
@@ -95,6 +99,7 @@ def atari_model(n_actions):
     # "The output layer is a fully-connected linear layer with a single output for each valid action."
     output = keras.layers.Dense(n_actions)(hidden)
     # Finally, we multiply the output by the mask!
+    #TODO MAKE SURE MASK WORKS!
     filtered_output = keras.layers.concatenate([output, actions_input])
     #filtered_output = keras.layers.merge([output, actions_input], mode='mul')
 
@@ -122,6 +127,7 @@ def q_iteration(env, model, state, iteration, memory):
     # Sample and fit
     batch = memory_sample(memory)
     fit_batch(model, batch)
+    return model
 
 
 def get_epsilon_for_iteration(iteration):
@@ -130,11 +136,17 @@ def get_epsilon_for_iteration(iteration):
     return EPS
 
 def choose_best_action(model, state):
-    best_action_index = np.argmax(model.predict([state, state, state], ACTIONS))
-    return ACTIONS[best_action_index]
+    best_action_index = np.argmax(model.predict(state, [1, 1, 1]))
+    print("Best action index: ", best_action_index)
+    return ACTIONS_encoded[best_action_index]
 
 def memory_sample(memory):
     return random.sample(memory, BATCH_SIZE)
+
+def train_model(env, model, state, memory):
+    i = 0
+    while ITERATIONS > i:
+        q_iteration(env, model, state, i, memory)
 
 def run():
     # Create a breakout environment
@@ -146,22 +158,20 @@ def run():
     # env.render()
     model = atari_model(N_ACTIONS)
 
-    i = 0
     # memory = RingBuf(10000)
     memory = collections.deque([], MEMORY_SIZE)
-    run_random_policy(env, memory)
+    state = fill_up_memory(env, memory)
+    train_model(env, model, state, memory)
+    run_game_with_model(env, model)
 
-    '''while ITERATIONS > i:
-        q_iteration(env, model, frame, i, memory)
-
-    is_done = False
-    while not is_done:
+def run_game_with_model(env, model):
+    while True:
         # Perform a random action, returns the new frame, reward and whether the game is over
-        frame, reward, is_done, _ = env.step(choose_best_action(model, frame))
-        # Render
-        env.render()'''
+        action = model.predict
+        env.step(action)
+        env.render()
 
-def run_random_policy(env, memory):
+def fill_up_memory(env, memory):
     action = env.action_space.sample()
     state, _, _ = construct_state(env, action)
     i = 0
@@ -173,6 +183,7 @@ def run_random_policy(env, memory):
         memory.append(element)
         state = next_state
         i += 1
+    return state
 
 def construct_state(env, action):
     state = []
