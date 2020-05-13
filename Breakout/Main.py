@@ -66,8 +66,6 @@ def fit_batch(model, batch):
 
     """
     start_states, actions, rewards, next_states, is_terminal = map(list, zip(*batch))
-    print(np.shape(next_states))
-    print(np.shape(actions))
 
     # First, predict the Q values of the next states. Note how we are passing ones as the mask.
     next_Q_values = model.predict([next_states, np.ones(np.shape(actions))])
@@ -117,15 +115,16 @@ def atari_model(n_actions):
 def q_iteration(env, model, state, iteration, memory):
     # Choose epsilon based on the iteration
     epsilon = get_epsilon_for_iteration(iteration)
-    print(epsilon)
 
     # Choose the action
     # Choose the action
     #TODO Implement more sophisticated exploitation-exploration trade-off, should maybe be biased towards exploitation later on.
     if random.random() < epsilon:
         action = env.action_space.sample()
+        print("Sampling action")
     else:
         action = choose_best_action(model, state)
+        print("Choosing best action")
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
     state, reward, is_done = construct_state(env, action)
@@ -145,7 +144,6 @@ def get_epsilon_for_iteration(iteration):
 
 def choose_best_action(model, state):
     best_action_index = np.argmax(model.predict([np.reshape(state, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
-    print("Best action index: ", best_action_index)
     return best_action_index
 
 def memory_sample(memory):
@@ -153,18 +151,24 @@ def memory_sample(memory):
 
 def train_model(env, model, state, memory):
     i = 0
+    print("_____________________________Starting Training________________________________________")
     while ITERATIONS > i:
         q_iteration(env, model, state, i, memory)
+        print("Iteration -> ", i)
         i += 1
 
-def run():
+def init_test_environment():
     # Create a breakout environment
     env = gym.make('BreakoutDeterministic-v4')
     # Reset it, returns the starting frame
     frame = env.reset()
-    #print(np.shape(frame))
+    # print(np.shape(frame))
     # Render
     # env.render()
+    return env
+
+def run_training():
+    env = init_test_environment()
     model = atari_model(N_ACTIONS)
 
     # memory = RingBuf(10000)
@@ -172,6 +176,12 @@ def run():
     state = fill_up_memory(env, memory)
     train_model(env, model, state, memory)
     model.save('BreakoutModel_basic.model')
+    run_game_with_model(env, model)
+
+def run_model(model_path):
+    env = init_test_environment()
+    model = atari_model(N_ACTIONS)
+    model.load_weights(model_path)
     run_game_with_model(env, model)
 
 def run_game_with_model(env, model):
@@ -186,6 +196,7 @@ def fill_up_memory(env, memory):
     action = env.action_space.sample()
     state, _, _ = construct_state(env, action)
     i = 0
+    print("_____________________________Prepare Replay Memory________________________________________")
     while i < REPLAY_START_SIZE:
         # Perform a random action, returns the new frame, reward and whether the game is over
         action = env.action_space.sample()
@@ -268,7 +279,8 @@ def gym_output_test():
         print(env.action_space.sample())
 
 if __name__ == '__main__':
-    run()
+    #run_training()
+    run_model("BreakoutModel_basic.model")
 
 ################################################################
     #Tests:
