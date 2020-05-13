@@ -100,8 +100,9 @@ def atari_model(n_actions):
     output = keras.layers.Dense(n_actions)(hidden)
     # Finally, we multiply the output by the mask!
     #TODO MAKE SURE MASK WORKS!
-    filtered_output = keras.layers.concatenate([output, actions_input])
+    #filtered_output = keras.layers.concatenate([output, actions_input])
     #filtered_output = keras.layers.merge([output, actions_input], mode='mul')
+    filtered_output = keras.layers.multiply([output, actions_input])
 
     model = keras.models.Model(input=[frames_input, actions_input], output=filtered_output)
     optimizer = optimizer = keras.optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
@@ -162,6 +163,7 @@ def run():
     memory = collections.deque([], MEMORY_SIZE)
     state = fill_up_memory(env, memory)
     train_model(env, model, state, memory)
+    model.save('BreakoutModel_basic.model')
     run_game_with_model(env, model)
 
 def run_game_with_model(env, model):
@@ -193,7 +195,6 @@ def construct_state(env, action):
         new_frame, reward, is_done, _ = env.step(action)
         new_frame = preprocess(new_frame)
         state.append(new_frame)
-    print(state)
     state = np.reshape(state, (105, 80, 4))
     return state, reward, is_done
 
