@@ -12,11 +12,12 @@ import collections
 # TODO Check how states should be constructed, with or without overlap
 
 '''Constants'''
-ACTIONS = [0, 3, 4]
-ACTIONS_encoded = [[1, 0, 0],
-                    [0, 1, 0],
-                    [0, 0, 1]]
-N_ACTIONS = 3
+ACTIONS = [0, 1, 2, 3]
+ACTIONS_encoded = [[1, 0, 0, 0],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, 0],
+                   [0, 0, 0, 1]]
+N_ACTIONS = 4
 REPLAY_START_SIZE = 5000
 STATE_SIZE = 4
 
@@ -24,8 +25,9 @@ STATE_SIZE = 4
 ITERATIONS = 100000
 EPS = 1
 EPS_SUBTRACT = 1e-6
+#EPS_SUBTRACT = 0.01
 MEMORY_SIZE = 100000
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 GAMMA = 0.99
 
 ################################################################
@@ -64,6 +66,8 @@ def fit_batch(model, batch):
 
     """
     start_states, actions, rewards, next_states, is_terminal = map(list, zip(*batch))
+    print(np.shape(next_states))
+    print(np.shape(actions))
 
     # First, predict the Q values of the next states. Note how we are passing ones as the mask.
     next_Q_values = model.predict([next_states, np.ones(np.shape(actions))])
@@ -105,7 +109,7 @@ def atari_model(n_actions):
     filtered_output = keras.layers.multiply([output, actions_input])
 
     model = keras.models.Model(input=[frames_input, actions_input], output=filtered_output)
-    optimizer = optimizer = keras.optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
+    optimizer = keras.optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
     model.compile(optimizer, loss='mse')
 
     return model
@@ -113,6 +117,8 @@ def atari_model(n_actions):
 def q_iteration(env, model, state, iteration, memory):
     # Choose epsilon based on the iteration
     epsilon = get_epsilon_for_iteration(iteration)
+    print(epsilon)
+
     # Choose the action
     # Choose the action
     #TODO Implement more sophisticated exploitation-exploration trade-off, should maybe be biased towards exploitation later on.
@@ -123,23 +129,24 @@ def q_iteration(env, model, state, iteration, memory):
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
     state, reward, is_done = construct_state(env, action)
+    action = ACTIONS_encoded[action]
     element = state, action, reward, state, is_done
     memory.append(element)
     # Sample and fit
     batch = memory_sample(memory)
     fit_batch(model, batch)
-    return model
 
 
 def get_epsilon_for_iteration(iteration):
-    if EPS > 0.1:
-        return EPS - EPS_SUBTRACT
-    return EPS
+    eps = EPS - iteration*EPS_SUBTRACT
+    if eps > 0.1:
+        return eps
+    return 0.1
 
 def choose_best_action(model, state):
-    best_action_index = np.argmax(model.predict(state, [1, 1, 1]))
+    best_action_index = np.argmax(model.predict([np.reshape(state, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
     print("Best action index: ", best_action_index)
-    return ACTIONS_encoded[best_action_index]
+    return best_action_index
 
 def memory_sample(memory):
     return random.sample(memory, BATCH_SIZE)
@@ -148,6 +155,7 @@ def train_model(env, model, state, memory):
     i = 0
     while ITERATIONS > i:
         q_iteration(env, model, state, i, memory)
+        i += 1
 
 def run():
     # Create a breakout environment
@@ -170,6 +178,7 @@ def run_game_with_model(env, model):
     while True:
         # Perform a random action, returns the new frame, reward and whether the game is over
         action = model.predict
+        action = np.argmax(action)
         env.step(action)
         env.render()
 
@@ -181,7 +190,7 @@ def fill_up_memory(env, memory):
         # Perform a random action, returns the new frame, reward and whether the game is over
         action = env.action_space.sample()
         next_state, reward, is_done = construct_state(env, action)
-        element = state, action, reward, next_state, is_done
+        element = state, ACTIONS_encoded[action], reward, next_state, is_done
         memory.append(element)
         state = next_state
         i += 1
@@ -248,6 +257,16 @@ def memory_test():
     print("Second: ", second)
     print("Last: ", last)
 
+def gym_output_test():
+    # Create a breakout environment
+    env = gym.make('BreakoutDeterministic-v4')
+    # Reset it, returns the starting frame
+    frame = env.reset()
+
+
+    while True:
+        print(env.action_space.sample())
+
 if __name__ == '__main__':
     run()
 
@@ -256,3 +275,4 @@ if __name__ == '__main__':
 
     #run_random()
     #memory_test()
+    #gym_output_test()
