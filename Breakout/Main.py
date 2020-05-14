@@ -5,6 +5,7 @@ import tensorflow as tf
 import keras
 import random
 import collections
+import copy
 
 # TODO Change environment to Breakout-v0 and implement frame skipping
 # TODO Research Hubber Loss
@@ -18,7 +19,7 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 5000
+REPLAY_START_SIZE = 20000
 STATE_SIZE = 4
 
 '''Training params'''
@@ -112,7 +113,7 @@ def atari_model(n_actions):
 
     return model
 
-def q_iteration(env, model, state, iteration, memory):
+def q_iteration(env, model, start_state, iteration, memory):
     # Choose epsilon based on the iteration
     epsilon = get_epsilon_for_iteration(iteration)
 
@@ -123,17 +124,26 @@ def q_iteration(env, model, state, iteration, memory):
         action = env.action_space.sample()
         print("Sampling action")
     else:
-        action = choose_best_action(model, state)
+        action = choose_best_action(model, start_state)
         print("Choosing best action")
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
-    state, reward, is_done = construct_state(env, action)
+    frame, reward, is_done, _ = env.step(action)
+
+    start_state_list = list(start_state)
+    start_state_list = np.reshape(start_state_list, (105, 80, 4))
+
+    state = construct_state(start_state, frame)
+    state_list = list(state)
+    state_list = np.reshape(state_list, (105, 80, 4))
+
     action = ACTIONS_encoded[action]
-    element = state, action, reward, state, is_done
+    element = start_state_list, action, reward, state_list, is_done
     memory.append(element)
     # Sample and fit
     batch = memory_sample(memory)
     fit_batch(model, batch)
+    return state
 
 
 def get_epsilon_for_iteration(iteration):
@@ -153,7 +163,7 @@ def train_model(env, model, state, memory):
     i = 0
     print("_____________________________Starting Training________________________________________")
     while ITERATIONS > i:
-        q_iteration(env, model, state, i, memory)
+        state = q_iteration(env, model, state, i, memory)
         print("Iteration -> ", i)
         i += 1
 
@@ -176,7 +186,6 @@ def run_training():
     state = fill_up_memory(env, memory)
     train_model(env, model, state, memory)
     model.save('BreakoutModel_basic.model')
-    run_game_with_model(env, model)
 
 def run_model(model_path):
     env = init_test_environment()
@@ -185,40 +194,59 @@ def run_model(model_path):
     run_game_with_model(env, model)
 
 def run_game_with_model(env, model):
-    while True:
+    state = init_state(env, env.action_space.sample())
+    is_done = False
+    while not is_done:
         # Perform a random action, returns the new frame, reward and whether the game is over
-        action = model.predict
-        action = np.argmax(action)
-        env.step(action)
+        print(np.shape(state))
+        action = choose_best_action(model, state)
+        frame, reward, is_done, _ = env.step(action)
         env.render()
+        state = construct_state(state, frame)
 
 def fill_up_memory(env, memory):
     action = env.action_space.sample()
-    state, _, _ = construct_state(env, action)
+    start_state, _, _ = init_state(env, action)
+    state = 0
     i = 0
     print("_____________________________Prepare Replay Memory________________________________________")
     while i < REPLAY_START_SIZE:
         # Perform a random action, returns the new frame, reward and whether the game is over
         action = env.action_space.sample()
-        next_state, reward, is_done = construct_state(env, action)
-        element = state, ACTIONS_encoded[action], reward, next_state, is_done
+        frame, reward, is_done, _ = env.step(action)
+
+        start_state_list = list(start_state)
+        start_state_list = np.reshape(start_state_list, (105, 80, 4))
+
+        state = construct_state(start_state, frame)
+        state_list = list(state)
+        state_list = np.reshape(state_list, (105, 80, 4))
+
+        action = ACTIONS_encoded[action]
+        element = start_state_list, action, reward, state_list, is_done
         memory.append(element)
-        state = next_state
         i += 1
+        start_state = state
     return state
 
-def construct_state(env, action):
-    state = []
+def init_state(env, action):
+    state = collections.deque([], STATE_SIZE)
     reward = 0
     is_done = False
-    for _ in range(STATE_SIZE):
+    while state.__len__() < STATE_SIZE:
         new_frame, reward, is_done, _ = env.step(action)
         new_frame = preprocess(new_frame)
         state.append(new_frame)
-    state = np.reshape(state, (105, 80, 4))
+    #state = np.reshape(state, (105, 80, 4))
     return state, reward, is_done
 
-def run_random(env):
+def construct_state(state, frame):
+    state = collections.deque(list(state), STATE_SIZE)
+    state.append(frame)
+    return state
+
+def run_random():
+    env = init_test_environment()
     is_done = False
     while not is_done:
         # Perform a random action, returns the new frame, reward and whether the game is over
@@ -254,19 +282,29 @@ def memory_test():
     print(memory.__len__())
     memory.append((16, 17, 18))
     print(memory.__len__())
-    #print(memory.popleft()) # (4, 5, 6) is expected
+    print(memory.popleft()) # (4, 5, 6) is expected
     #print(memory.pop()) # (16, 17, 18) is expected
+
+    memoryCopy = copy.copy(memory)
+    print("Copy: ", memoryCopy.__len__())
+    print("Original: ", memory.__len__())
+    memory.popleft()
+    print("Copy: ", memoryCopy.__len__())
+    print("Original: ", memory.__len__())
+    memory.popleft()
+    print("Copy: ", memoryCopy.__len__())
+    print("Original: ", memory.__len__())
 
     #indeces = random.randint(5, 2)
     #print(memory.__getitem__(indeces))
     #print(random.sample(memory, 2))
 
-    batch = random.sample(memory, 2)
+    '''batch = random.sample(memory, 2)
     print("Batch: ", batch)
     first, second, last = map(list, zip(*batch))
     print("First: ", first)
     print("Second: ", second)
-    print("Last: ", last)
+    print("Last: ", last)'''
 
 def gym_output_test():
     # Create a breakout environment
@@ -279,8 +317,8 @@ def gym_output_test():
         print(env.action_space.sample())
 
 if __name__ == '__main__':
-    #run_training()
-    run_model("BreakoutModel_basic.model")
+    run_training()
+    #run_model("BreakoutModel_basic.model")
 
 ################################################################
     #Tests:
