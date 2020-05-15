@@ -19,17 +19,17 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 20000
+REPLAY_START_SIZE = 2000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 100000
+ITERATIONS = 1000
 EPS = 1
 EPS_SUBTRACT = 1e-6
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 100000
+MEMORY_SIZE = 10000
 BATCH_SIZE = 32
-GAMMA = 0.99
+GAMMA = 0.95
 
 ################################################################
 '''Pre-processing Functions'''
@@ -133,6 +133,7 @@ def q_iteration(env, model, start_state, iteration, memory):
     start_state_list = list(start_state)
     start_state_list = np.reshape(start_state_list, (105, 80, 4))
 
+    frame = preprocess(frame)
     state = construct_state(start_state, frame)
     state_list = list(state)
     state_list = np.reshape(state_list, (105, 80, 4))
@@ -174,7 +175,7 @@ def init_test_environment():
     frame = env.reset()
     # print(np.shape(frame))
     # Render
-    # env.render()
+    env.render()
     return env
 
 def run_training():
@@ -194,15 +195,16 @@ def run_model(model_path):
     run_game_with_model(env, model)
 
 def run_game_with_model(env, model):
-    state = init_state(env, env.action_space.sample())
+    state, _, _ = init_state(env, env.action_space.sample())
     is_done = False
     while not is_done:
         # Perform a random action, returns the new frame, reward and whether the game is over
-        print(np.shape(state))
+        #print(np.shape(state))
         action = choose_best_action(model, state)
         frame, reward, is_done, _ = env.step(action)
         env.render()
-        state = construct_state(state, frame)
+        frame = preprocess(frame)
+        state.append(frame)
 
 def fill_up_memory(env, memory):
     action = env.action_space.sample()
@@ -218,6 +220,7 @@ def fill_up_memory(env, memory):
         start_state_list = list(start_state)
         start_state_list = np.reshape(start_state_list, (105, 80, 4))
 
+        frame = preprocess(frame)
         state = construct_state(start_state, frame)
         state_list = list(state)
         state_list = np.reshape(state_list, (105, 80, 4))
@@ -237,6 +240,7 @@ def init_state(env, action):
         new_frame, reward, is_done, _ = env.step(action)
         new_frame = preprocess(new_frame)
         state.append(new_frame)
+        #print(np.shape(list(state)))
     #state = np.reshape(state, (105, 80, 4))
     return state, reward, is_done
 
@@ -270,22 +274,24 @@ def memory_test():
 
     # FIFO
     memory = collections.deque([], 5)
-    memory.append((1, 2, 3))
+    memory.append([1, 2, 3])
     print(memory.__len__())
-    memory.append((4, 5, 6))
+    memory.append([4, 5, 6])
     print(memory.__len__())
-    memory.append((7, 8, 9))
+    memory.append([7, 8, 9])
     print(memory.__len__())
-    memory.append((10, 11, 12))
+    memory.append([10, 11, 12])
     print(memory.__len__())
-    memory.append((13, 14, 15))
+    memory.append([13, 14, 15])
     print(memory.__len__())
-    memory.append((16, 17, 18))
+    memory.append([16, 17, 18])
     print(memory.__len__())
     print(memory.popleft()) # (4, 5, 6) is expected
     #print(memory.pop()) # (16, 17, 18) is expected
 
-    memoryCopy = copy.copy(memory)
+    print(np.shape(list(memory)))
+
+    '''memoryCopy = copy.copy(memory)
     print("Copy: ", memoryCopy.__len__())
     print("Original: ", memory.__len__())
     memory.popleft()
@@ -293,7 +299,7 @@ def memory_test():
     print("Original: ", memory.__len__())
     memory.popleft()
     print("Copy: ", memoryCopy.__len__())
-    print("Original: ", memory.__len__())
+    print("Original: ", memory.__len__())'''
 
     #indeces = random.randint(5, 2)
     #print(memory.__getitem__(indeces))
@@ -317,8 +323,8 @@ def gym_output_test():
         print(env.action_space.sample())
 
 if __name__ == '__main__':
-    run_training()
-    #run_model("BreakoutModel_basic.model")
+    #run_training()
+    run_model("BreakoutModel_basic.model")
 
 ################################################################
     #Tests:
