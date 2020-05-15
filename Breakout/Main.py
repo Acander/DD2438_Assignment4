@@ -19,17 +19,17 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 2000
+REPLAY_START_SIZE = 10000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 1000
+ITERATIONS = 1000000
 EPS = 1
 EPS_SUBTRACT = 1e-6
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 10000
+MEMORY_SIZE = 1000000
 BATCH_SIZE = 32
-GAMMA = 0.95
+GAMMA = 0.99
 
 ################################################################
 '''Pre-processing Functions'''
@@ -102,9 +102,6 @@ def atari_model(n_actions):
     # "The output layer is a fully-connected linear layer with a single output for each valid action."
     output = keras.layers.Dense(n_actions)(hidden)
     # Finally, we multiply the output by the mask!
-    #TODO MAKE SURE MASK WORKS!
-    #filtered_output = keras.layers.concatenate([output, actions_input])
-    #filtered_output = keras.layers.merge([output, actions_input], mode='mul')
     filtered_output = keras.layers.multiply([output, actions_input])
 
     model = keras.models.Model(input=[frames_input, actions_input], output=filtered_output)
@@ -139,7 +136,7 @@ def q_iteration(env, model, start_state, iteration, memory):
     state_list = np.reshape(state_list, (105, 80, 4))
 
     action = ACTIONS_encoded[action]
-    element = start_state_list, action, reward, state_list, is_done
+    element = start_state_list, action, transform_reward(reward), state_list, is_done
     memory.append(element)
     # Sample and fit
     batch = memory_sample(memory)
@@ -170,12 +167,12 @@ def train_model(env, model, state, memory):
 
 def init_test_environment():
     # Create a breakout environment
-    env = gym.make('BreakoutDeterministic-v4')
+    env = gym.make('Breakout-v0')
     # Reset it, returns the starting frame
     frame = env.reset()
     # print(np.shape(frame))
     # Render
-    env.render()
+    #env.render()
     return env
 
 def run_training():
@@ -314,7 +311,7 @@ def memory_test():
 
 def gym_output_test():
     # Create a breakout environment
-    env = gym.make('BreakoutDeterministic-v4')
+    env = gym.make('Breakout-v0')
     # Reset it, returns the starting frame
     frame = env.reset()
 
@@ -323,8 +320,8 @@ def gym_output_test():
         print(env.action_space.sample())
 
 if __name__ == '__main__':
-    #run_training()
-    run_model("BreakoutModel_basic.model")
+    run_training()
+    #run_model("BreakoutModel_basic.model")
 
 ################################################################
     #Tests:
