@@ -23,13 +23,15 @@ REPLAY_START_SIZE = 10000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 1000000
+ITERATIONS = 20000
 EPS = 1
-EPS_SUBTRACT = 1e-6
+EPS_SUBTRACT = 1e-4
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 1000000
+MEMORY_SIZE = 10000
 BATCH_SIZE = 32
 GAMMA = 0.99
+
+"Game stats"
 
 ################################################################
 '''Pre-processing Functions'''
@@ -126,6 +128,7 @@ def q_iteration(env, model, start_state, iteration, memory):
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
     frame, reward, is_done, _ = env.step(action)
+    revamp_game(env, is_done)
 
     start_state_list = list(start_state)
     start_state_list = np.reshape(start_state_list, (105, 80, 4))
@@ -199,7 +202,7 @@ def run_game_with_model(env, model):
         #print(np.shape(state))
         action = choose_best_action(model, state)
         frame, reward, is_done, _ = env.step(action)
-        env.render()
+        revamp_game(env, is_done)
         frame = preprocess(frame)
         state.append(frame)
 
@@ -213,6 +216,7 @@ def fill_up_memory(env, memory):
         # Perform a random action, returns the new frame, reward and whether the game is over
         action = env.action_space.sample()
         frame, reward, is_done, _ = env.step(action)
+        revamp_game(env, is_done)
 
         start_state_list = list(start_state)
         start_state_list = np.reshape(start_state_list, (105, 80, 4))
@@ -229,12 +233,20 @@ def fill_up_memory(env, memory):
         start_state = state
     return state
 
+def revamp_game(env, is_done):
+    if is_done:
+        print("RESTARTING GAME")
+        env.reset()
+    #env.render()
+
+
 def init_state(env, action):
     state = collections.deque([], STATE_SIZE)
     reward = 0
     is_done = False
     while state.__len__() < STATE_SIZE:
         new_frame, reward, is_done, _ = env.step(action)
+        revamp_game(env, is_done)
         new_frame = preprocess(new_frame)
         state.append(new_frame)
         #print(np.shape(list(state)))
@@ -321,7 +333,7 @@ def gym_output_test():
 
 if __name__ == '__main__':
     run_training()
-    #run_model("BreakoutModel_basic.model")
+    #run_model("BreakoutModel_basic - kopia.model")
 
 ################################################################
     #Tests:
