@@ -1,11 +1,9 @@
 # Import the gym module
 import gym
 import numpy as np
-import tensorflow as tf
 import keras
 import random
 import collections
-import copy
 
 # TODO Change environment to Breakout-v0 and implement frame skipping
 # TODO Research Hubber Loss
@@ -19,19 +17,20 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 10000
+REPLAY_START_SIZE = 100000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 10000
+ITERATIONS = 200000
 EPS = 1
-EPS_SUBTRACT = 1e-4
+EPS_SUBTRACT = 1e-5
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 10000
+MEMORY_SIZE = 10000000
 BATCH_SIZE = 32
 GAMMA = 0.99
 
 "Game stats"
+SLOW_DOWN_RATE = 1000000
 
 ################################################################
 '''Pre-processing Functions'''
@@ -85,7 +84,6 @@ def fit_batch(model, batch):
 def atari_model(n_actions):
     # We assume a tensorflow backend here
     ATARI_SHAPE = (105, 80, 4)
-
     # With the functional API we need to define the inputs.
     frames_input = keras.layers.Input(ATARI_SHAPE, name='frames')
     actions_input = keras.layers.Input((n_actions,), name='mask')
@@ -186,7 +184,7 @@ def run_training():
     memory = collections.deque([], MEMORY_SIZE)
     state = fill_up_memory(env, memory)
     train_model(env, model, state, memory)
-    model.save('BreakoutModel_basic_10000Iterations.model')
+    model.save('BreakoutModel_basic_200k.model')
 
 def run_model(model_path):
     env = init_test_environment()
@@ -203,13 +201,14 @@ def run_game_with_model(env, model):
         action = choose_best_action(model, state)
         frame, reward, is_done, _ = env.step(action)
         revamp_game(env, is_done)
+        env.render()
         frame = preprocess(frame)
         state.append(frame)
         apply_slow_down_game()
 
 def apply_slow_down_game():
     i = 0
-    while i < 1000000:
+    while i < SLOW_DOWN_RATE:
         i += 1
 
 def fill_up_memory(env, memory):
@@ -243,7 +242,7 @@ def revamp_game(env, is_done):
     if is_done:
         print("RESTARTING GAME")
         env.reset()
-    env.render()
+    #env.render()
 
 
 def init_state(env, action):
@@ -337,10 +336,12 @@ def gym_output_test():
     while True:
         print(env.action_space.sample())
 
+
 if __name__ == '__main__':
-    #run_training()
-    run_model("BreakoutModel_basic_10000Iterations.model")
+    run_training()
+    #run_model("BreakoutModel_basic_10000Iterations.model")
     #run_model("BreakoutModel_basic-kopia.model")
+    #run_model("BreakoutModel_basic_200000Iterations.model")
 
 ################################################################
     #Tests:
