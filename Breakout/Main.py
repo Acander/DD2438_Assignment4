@@ -186,25 +186,42 @@ def run_training():
     train_model(env, model, state, memory)
     model.save('BreakoutModel_basic_200k.model')
 
-def run_model(model_path):
+def run_model(model_path, slow_down):
     env = init_test_environment()
     model = atari_model(N_ACTIONS)
     model.load_weights(model_path)
-    run_game_with_model(env, model)
+    run_game_with_model(env, model, slow_down)
 
-def run_game_with_model(env, model):
+def run_game_with_model(env, model, slow_down):
+    nr_games = 1
+    tot_reward = 0
+    high_score = tot_reward
     state, _, _ = init_state(env, env.action_space.sample())
-    is_done = False
-    while not is_done:
-        # Perform a random action, returns the new frame, reward and whether the game is over
-        #print(np.shape(state))
+    # Perform a random action, returns the new frame, reward and whether the game is over
+    #print(np.shape(state))
+    while True:
         action = choose_best_action(model, state)
-        frame, reward, is_done, _ = env.step(action)
+        frame, reward, is_done, info = env.step(action)
+        tot_reward += reward
+        if is_done:
+            tot_reward, high_score, nr_games = note_game(tot_reward, high_score, nr_games)
         revamp_game(env, is_done)
         env.render()
         frame = preprocess(frame)
         state.append(frame)
-        apply_slow_down_game()
+        if slow_down:
+            apply_slow_down_game()
+
+
+def note_game(tot_reward, high_score, nr_games):
+    if tot_reward > high_score:
+        high_score = tot_reward
+    print("Game nr: ", nr_games)
+    print("Score ->", tot_reward)
+    print("Current High Score ->", high_score)
+    tot_reward = 0
+    nr_games += 1
+    return tot_reward, high_score, nr_games
 
 def apply_slow_down_game():
     i = 0
@@ -240,7 +257,7 @@ def fill_up_memory(env, memory):
 
 def revamp_game(env, is_done):
     if is_done:
-        print("RESTARTING GAME")
+        #print("RESTARTING GAME")
         env.reset()
     #env.render()
 
@@ -338,10 +355,10 @@ def gym_output_test():
 
 
 if __name__ == '__main__':
-    run_training()
-    #run_model("BreakoutModel_basic_10000Iterations.model")
+    #run_training()
+    run_model("BreakoutModel_basic_10000Iterations.model", slow_down=False)
     #run_model("BreakoutModel_basic-kopia.model")
-    #run_model("BreakoutModel_basic_200000Iterations.model")
+    #run_model("BreakoutModel_basic_200000Iterations.model", slow_down=False)
 
 ################################################################
     #Tests:
