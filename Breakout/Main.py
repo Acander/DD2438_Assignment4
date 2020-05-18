@@ -23,7 +23,7 @@ REPLAY_START_SIZE = 10000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 20000
+ITERATIONS = 10000
 EPS = 1
 EPS_SUBTRACT = 1e-4
 #EPS_SUBTRACT = 0.01
@@ -186,7 +186,7 @@ def run_training():
     memory = collections.deque([], MEMORY_SIZE)
     state = fill_up_memory(env, memory)
     train_model(env, model, state, memory)
-    model.save('BreakoutModel_basic.model')
+    model.save('BreakoutModel_basic_10000Iterations.model')
 
 def run_model(model_path):
     env = init_test_environment()
@@ -205,6 +205,12 @@ def run_game_with_model(env, model):
         revamp_game(env, is_done)
         frame = preprocess(frame)
         state.append(frame)
+        apply_slow_down_game()
+
+def apply_slow_down_game():
+    i = 0
+    while i < 1000000:
+        i += 1
 
 def fill_up_memory(env, memory):
     action = env.action_space.sample()
@@ -237,7 +243,7 @@ def revamp_game(env, is_done):
     if is_done:
         print("RESTARTING GAME")
         env.reset()
-    #env.render()
+    env.render()
 
 
 def init_state(env, action):
@@ -332,8 +338,9 @@ def gym_output_test():
         print(env.action_space.sample())
 
 if __name__ == '__main__':
-    run_training()
-    #run_model("BreakoutModel_basic - kopia.model")
+    #run_training()
+    run_model("BreakoutModel_basic_10000Iterations.model")
+    #run_model("BreakoutModel_basic-kopia.model")
 
 ################################################################
     #Tests:
