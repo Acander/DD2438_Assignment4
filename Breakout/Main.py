@@ -11,19 +11,19 @@ import collections
 # TODO Check how states should be constructed, with or without overlap
 
 '''Constants'''
-ACTIONS = [0, 1, 2, 3]
+ACTIONS = [0, 1, 2, 3] # ['NOOP', 'FIRE', 'RIGHT', 'LEFT']
 ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 1, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 100000
+REPLAY_START_SIZE = 10000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 200000
+ITERATIONS = 10000
 EPS = 1
-EPS_SUBTRACT = 1e-5
+EPS_SUBTRACT = 1e-6
 #EPS_SUBTRACT = 0.01
 MEMORY_SIZE = 10000000
 BATCH_SIZE = 32
@@ -70,13 +70,16 @@ def fit_batch(model, batch):
     start_states, actions, rewards, next_states, is_terminal = map(list, zip(*batch))
 
     # First, predict the Q values of the next states. Note how we are passing ones as the mask.
+    print(np.shape(next_states))
     next_Q_values = model.predict([next_states, np.ones(np.shape(actions))])
+    #print(next_Q_values)
     # The Q values of the terminal states is 0 by definition, so override them
     next_Q_values[is_terminal] = 0
     # The Q values of each start state is the reward + gamma * the max next state Q value
     Q_values = rewards + GAMMA * np.max(next_Q_values, axis=1)
     # Fit the keras model. Note how we are passing the actions as the mask and multiplying
     # the targets by the actions.
+    #print(actions)
     model.fit(
         [start_states, actions], actions * Q_values[:, None], nb_epoch=1, batch_size=len(start_states), verbose=0)
 
@@ -129,12 +132,16 @@ def q_iteration(env, model, start_state, iteration, memory):
     revamp_game(env, is_done)
 
     start_state_list = list(start_state)
-    start_state_list = np.reshape(start_state_list, (105, 80, 4))
+    #start_state_list = np.reshape(start_state_list, (105, 80, 4))
+    start_state_list = np.transpose(start_state_list, (1, 2, 0))
 
     frame = preprocess(frame)
     state = construct_state(start_state, frame)
     state_list = list(state)
-    state_list = np.reshape(state_list, (105, 80, 4))
+    print(np.shape(state_list))
+    #state_list = np.reshape(state_list, (105, 80, 4))
+    state_list = np.transpose(start_state, (1, 2, 0))
+    print(np.shape(state_list))
 
     action = ACTIONS_encoded[action]
     element = start_state_list, action, transform_reward(reward), state_list, is_done
@@ -152,7 +159,13 @@ def get_epsilon_for_iteration(iteration):
     return 0.1
 
 def choose_best_action(model, state):
-    best_action_index = np.argmax(model.predict([np.reshape(state, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
+    state_list = list(state)
+    #print(np.shape(state_list))
+    state_list = np.transpose(state_list, (1, 2, 0))
+    #best_action_index = np.argmax(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
+    print(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
+    best_action_index = np.argmax(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
+    print(best_action_index)
     return best_action_index
 
 def memory_sample(memory):
@@ -171,6 +184,8 @@ def init_test_environment():
     env = gym.make('Breakout-v0')
     # Reset it, returns the starting frame
     frame = env.reset()
+    print(env.action_space)
+    print(env.unwrapped.get_action_meanings())
     # print(np.shape(frame))
     # Render
     #env.render()
@@ -179,6 +194,17 @@ def init_test_environment():
 def run_training():
     env = init_test_environment()
     model = atari_model(N_ACTIONS)
+
+    # memory = RingBuf(10000)
+    memory = collections.deque([], MEMORY_SIZE)
+    state = fill_up_memory(env, memory)
+    train_model(env, model, state, memory)
+    model.save('BreakoutModel_basic.model')
+
+def run_train_existing_model(model_path):
+    env = init_test_environment()
+    model = atari_model(N_ACTIONS)
+    model.load_weights(model_path)
 
     # memory = RingBuf(10000)
     memory = collections.deque([], MEMORY_SIZE)
@@ -241,12 +267,15 @@ def fill_up_memory(env, memory):
         revamp_game(env, is_done)
 
         start_state_list = list(start_state)
-        start_state_list = np.reshape(start_state_list, (105, 80, 4))
+        #start_state_list = np.reshape(start_state_list, (105, 80, 4))
+        start_state_list = np.transpose(start_state_list, (1, 2, 0)) # (4, 105, 80) -> (105, 80, 4)
 
         frame = preprocess(frame)
         state = construct_state(start_state, frame)
+
         state_list = list(state)
-        state_list = np.reshape(state_list, (105, 80, 4))
+        #state_list = np.reshape(state_list, (105, 80, 4))
+        state_list = np.transpose(start_state, (1, 2, 0))
 
         action = ACTIONS_encoded[action]
         element = start_state_list, action, reward, state_list, is_done
@@ -354,11 +383,21 @@ def gym_output_test():
         print(env.action_space.sample())
 
 
+def test_array_transform():
+    array = [[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[9, 10], [11, 12]]]
+
+    print(array)
+    print(np.reshape(array, (2, 2, 3)))
+
+
 if __name__ == '__main__':
     #run_training()
-    run_model("BreakoutModel_basic_10000Iterations.model", slow_down=False)
-    #run_model("BreakoutModel_basic-kopia.model")
+    #run_train_existing_model("BreakoutModel_basic_200k.model")
+
+    #run_model("BreakoutModel_basic_200k.model", slow_down=False)
+    run_model("BreakoutModel_basic.model", slow_down=False)
     #run_model("BreakoutModel_basic_200000Iterations.model", slow_down=False)
+
 
 ################################################################
     #Tests:
@@ -366,3 +405,4 @@ if __name__ == '__main__':
     #run_random()
     #memory_test()
     #gym_output_test()
+    #test_array_transform()
