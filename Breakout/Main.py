@@ -228,6 +228,7 @@ def run_game_with_model(env, model, slow_down):
     while True:
         action = choose_best_action(model, state)
         frame, reward, is_done, info = env.step(action)
+        print(reward)
         tot_reward += reward
         if is_done:
             tot_reward, high_score, nr_games = note_game(tot_reward, high_score, nr_games)
@@ -394,8 +395,8 @@ if __name__ == '__main__':
     #run_training()
     #run_train_existing_model("BreakoutModel_basic_200k.model")
 
-    #run_model("BreakoutModel_basic_200k.model", slow_down=False)
-    run_model("BreakoutModel_basic.model", slow_down=False)
+    run_model("BreakoutModel_basic_200k.model", slow_down=False)
+    #run_model("BreakoutModel_basic.model", slow_down=False)
     #run_model("BreakoutModel_basic_200000Iterations.model", slow_down=False)
 
 
