@@ -4,6 +4,7 @@ import numpy as np
 import keras
 import random
 import collections
+import matplotlib.pyplot as plt
 
 # TODO Change environment to Breakout-v0 and implement frame skipping
 # TODO Research Hubber Loss
@@ -17,20 +18,24 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 10000
+REPLAY_START_SIZE = 100
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 10000
+ITERATIONS = 1000
 EPS = 1
-EPS_SUBTRACT = 1e-6
+EPS_SUBTRACT = 1e-1
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 10000000
+MEMORY_SIZE = 1000
 BATCH_SIZE = 32
 GAMMA = 0.99
 
 "Game stats"
 SLOW_DOWN_RATE = 1000000
+
+"Plot Params"
+ITERATIONS_BEFORE_BENCHMARKING = 100
+TEST_STEPS = 10000
 
 ################################################################
 '''Pre-processing Functions'''
@@ -50,8 +55,8 @@ def preprocess(img):
 
 ###############################################################
 
-def transform_reward(reward):
-    return np.sign(reward)
+'''def transform_reward(reward):
+    return np.sign(reward)'''
 
 
 def fit_batch(model, batch):
@@ -113,7 +118,7 @@ def atari_model(n_actions):
 
     return model
 
-def q_iteration(env, model, start_state, iteration, memory):
+def q_iteration(env, model, start_state, iteration, memory, reward_so_far):
     # Choose epsilon based on the iteration
     epsilon = get_epsilon_for_iteration(iteration)
 
@@ -129,6 +134,7 @@ def q_iteration(env, model, start_state, iteration, memory):
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
     frame, reward, is_done, _ = env.step(action)
+    #reward_so_far += reward
     revamp_game(env, is_done)
 
     start_state_list = list(start_state)
@@ -137,14 +143,14 @@ def q_iteration(env, model, start_state, iteration, memory):
 
     frame = preprocess(frame)
     state = construct_state(start_state, frame)
-    state_list = list(state)
-    print(np.shape(state_list))
+    #state_list = list(state)
+    #print(np.shape(state_list))
     #state_list = np.reshape(state_list, (105, 80, 4))
     state_list = np.transpose(start_state, (1, 2, 0))
-    print(np.shape(state_list))
+    #print(np.shape(state_list))
 
     action = ACTIONS_encoded[action]
-    element = start_state_list, action, transform_reward(reward), state_list, is_done
+    element = start_state_list, action, reward, state_list, is_done
     memory.append(element)
     # Sample and fit
     batch = memory_sample(memory)
@@ -163,9 +169,9 @@ def choose_best_action(model, state):
     #print(np.shape(state_list))
     state_list = np.transpose(state_list, (1, 2, 0))
     #best_action_index = np.argmax(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
-    print(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
+    #print(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
     best_action_index = np.argmax(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
-    print(best_action_index)
+    #print(best_action_index)
     return best_action_index
 
 def memory_sample(memory):
@@ -173,11 +179,31 @@ def memory_sample(memory):
 
 def train_model(env, model, state, memory):
     i = 0
+    reward_so_far = 0
+    reward_averages = []
     print("_____________________________Starting Training________________________________________")
     while ITERATIONS > i:
-        state = q_iteration(env, model, state, i, memory)
+        state = q_iteration(env, model, state, i, memory, reward_so_far)
+
+        if i % ITERATIONS_BEFORE_BENCHMARKING == 0:
+            for _ in range(TEST_STEPS):
+                reward, state = test_model(env, model, state)
+                reward_so_far += reward
+
+            reward_averages.append(reward_so_far/TEST_STEPS)
+
         print("Iteration -> ", i)
         i += 1
+
+    return reward_averages
+
+def test_model(env, model, start_state):
+    action = choose_best_action(model, start_state)
+    frame, reward, is_done, _ = env.step(action)
+    revamp_game(env, is_done)
+    frame = preprocess(frame)
+    state = construct_state(start_state, frame)
+    return reward, state
 
 def init_test_environment():
     # Create a breakout environment
@@ -186,6 +212,7 @@ def init_test_environment():
     frame = env.reset()
     print(env.action_space)
     print(env.unwrapped.get_action_meanings())
+    print(env.reward_range)
     # print(np.shape(frame))
     # Render
     #env.render()
@@ -198,8 +225,34 @@ def run_training():
     # memory = RingBuf(10000)
     memory = collections.deque([], MEMORY_SIZE)
     state = fill_up_memory(env, memory)
-    train_model(env, model, state, memory)
+    reward_averages = train_model(env, model, state, memory)
     model.save('BreakoutModel_basic.model')
+
+    random_reward_average = get_random_reward_average()
+    plot_reward_per_epoch(reward_averages, random_reward_average)
+
+def plot_reward_per_epoch(reward_averages, random_reward_average):
+    print("Number of Epochs:", ITERATIONS/ITERATIONS_BEFORE_BENCHMARKING)
+    data_size = np.size(reward_averages)
+    random_reward_averages = np.full(data_size, random_reward_average)
+    plt.plot(np.arange(data_size), np.array(reward_averages), color='blue', label='Model')
+    plt.plot(np.arange(data_size), random_reward_averages, color='red', label='Random')
+
+    xMin = 0
+    xMax = data_size
+
+    concat_list = np.concatenate((reward_averages, random_reward_averages))
+    yMin = np.min(concat_list)
+    yMax = np.max(concat_list)
+
+    plt.xlim(xMin, xMax)
+    plt.ylim(yMin, yMax)
+
+    plt.xlabel('Epoch')
+    plt.ylabel('Average Reward per Time Step')
+    plt.legend()
+    plt.show()
+
 
 def run_train_existing_model(model_path):
     env = init_test_environment()
@@ -310,14 +363,19 @@ def construct_state(state, frame):
     state.append(frame)
     return state
 
-def run_random():
+def get_random_reward_average():
     env = init_test_environment()
-    is_done = False
-    while not is_done:
+    revard_average = 0
+    i = 0
+    while i < TEST_STEPS:
         # Perform a random action, returns the new frame, reward and whether the game is over
         frame, reward, is_done, _ = env.step(env.action_space.sample())
+        revard_average += reward
+        revamp_game(env, is_done)
         # Render
-        env.render()
+        #env.render()
+        i += 1
+    return revard_average / ITERATIONS_BEFORE_BENCHMARKING
 
 def memory_test():
     # LIFO
@@ -392,10 +450,10 @@ def test_array_transform():
 
 
 if __name__ == '__main__':
-    #run_training()
+    run_training()
     #run_train_existing_model("BreakoutModel_basic_200k.model")
 
-    run_model("BreakoutModel_basic_200k.model", slow_down=False)
+    #run_model("BreakoutModel_basic_200k.model", slow_down=False)
     #run_model("BreakoutModel_basic.model", slow_down=False)
     #run_model("BreakoutModel_basic_200000Iterations.model", slow_down=False)
 
