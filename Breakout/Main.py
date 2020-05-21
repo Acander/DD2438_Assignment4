@@ -18,15 +18,15 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 100
+REPLAY_START_SIZE = 20000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 1000
+ITERATIONS = 1000000
 EPS = 1
-EPS_SUBTRACT = 1e-1
+EPS_SUBTRACT = 1e-6
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 1000
+MEMORY_SIZE = 200000
 BATCH_SIZE = 32
 GAMMA = 0.99
 
@@ -34,7 +34,7 @@ GAMMA = 0.99
 SLOW_DOWN_RATE = 1000000
 
 "Plot Params"
-ITERATIONS_BEFORE_BENCHMARKING = 100
+ITERATIONS_BEFORE_BENCHMARKING = 100000
 TEST_STEPS = 10000
 
 ################################################################
@@ -75,7 +75,7 @@ def fit_batch(model, batch):
     start_states, actions, rewards, next_states, is_terminal = map(list, zip(*batch))
 
     # First, predict the Q values of the next states. Note how we are passing ones as the mask.
-    print(np.shape(next_states))
+    #print(np.shape(next_states))
     next_Q_values = model.predict([next_states, np.ones(np.shape(actions))])
     #print(next_Q_values)
     # The Q values of the terminal states is 0 by definition, so override them
@@ -127,10 +127,10 @@ def q_iteration(env, model, start_state, iteration, memory, reward_so_far):
     #TODO Implement more sophisticated exploitation-exploration trade-off, should maybe be biased towards exploitation later on.
     if random.random() < epsilon:
         action = env.action_space.sample()
-        print("Sampling action")
+        #print("Sampling action")
     else:
         action = choose_best_action(model, start_state)
-        print("Choosing best action")
+        #print("Choosing best action")
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
     frame, reward, is_done, _ = env.step(action)
@@ -191,8 +191,9 @@ def train_model(env, model, state, memory):
                 reward_so_far += reward
 
             reward_averages.append(reward_so_far/TEST_STEPS)
+            print("Iteration -> ", i)
 
-        print("Iteration -> ", i)
+        #print("Iteration -> ", i)
         i += 1
 
     return reward_averages
@@ -252,6 +253,7 @@ def plot_reward_per_epoch(reward_averages, random_reward_average):
     plt.ylabel('Average Reward per Time Step')
     plt.legend()
     plt.show()
+    plt.savefig('RewardPlot.png')
 
 
 def run_train_existing_model(model_path):
