@@ -1,8 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="BranchesTreeState">
+    <expand>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="LOCAL_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+      <path>
+        <item name="ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="REMOTE_ROOT" type="e8cecc67:BranchNodeDescriptor" />
+        <item name="GROUP_NODE:origin" type="e8cecc67:BranchNodeDescriptor" />
+      </path>
+    </expand>
+    <select />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="3a1934c4-6596-424d-ac24-e8e058813ff9" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Breakout/BreakoutModel_basic-kopia.model" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Breakout/BreakoutModel_basic.model" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Breakout/BreakoutModel_basic.model.data-00000-of-00001" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Breakout/BreakoutModel_basic.model.index" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Breakout/BreakoutModel_basic_10000Iterations.model" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Breakout/BreakoutModel_basic_200000Iterations.model" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Breakout/BreakoutModel_basic_200k.model" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Breakout/Main.py" beforeDir="false" afterPath="$PROJECT_DIR$/Breakout/Main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -127,31 +152,46 @@
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
   </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="WindowStateProjectService">
     <state x="2659" y="355" key="FileChooserDialogImpl" timestamp="1590143722299">
       <screen x="1920" y="0" width="1920" height="1200" />
     </state>
     <state x="2659" y="355" key="FileChooserDialogImpl/0.0.1920.1080/1920.0.1920.1200@1920.0.1920.1200" timestamp="1590143722299" />
-    <state width="1899" height="303" key="GridCell.Tab.0.bottom" timestamp="1590152944421">
-      <screen x="1920" y="0" width="1920" height="1200" />
+    <state width="1899" height="303" key="GridCell.Tab.0.bottom" timestamp="1590185054109">
+      <screen x="0" y="0" width="1920" height="1080" />
     </state>
     <state width="936" height="267" key="GridCell.Tab.0.bottom/0.0.1920.1080/1920.0.1920.1200@0.0.1920.1080" timestamp="1590134164160" />
     <state width="1899" height="303" key="GridCell.Tab.0.bottom/0.0.1920.1080/1920.0.1920.1200@1920.0.1920.1200" timestamp="1590152944421" />
-    <state width="1899" height="303" key="GridCell.Tab.0.center" timestamp="1590152944421">
-      <screen x="1920" y="0" width="1920" height="1200" />
+    <state width="1899" height="303" key="GridCell.Tab.0.bottom/0.0.1920.1080@0.0.1920.1080" timestamp="1590185054109" />
+    <state width="1899" height="303" key="GridCell.Tab.0.center" timestamp="1590185054109">
+      <screen x="0" y="0" width="1920" height="1080" />
     </state>
     <state width="936" height="267" key="GridCell.Tab.0.center/0.0.1920.1080/1920.0.1920.1200@0.0.1920.1080" timestamp="1590134164159" />
     <state width="1899" height="303" key="GridCell.Tab.0.center/0.0.1920.1080/1920.0.1920.1200@1920.0.1920.1200" timestamp="1590152944421" />
-    <state width="1899" height="303" key="GridCell.Tab.0.left" timestamp="1590152944421">
-      <screen x="1920" y="0" width="1920" height="1200" />
+    <state width="1899" height="303" key="GridCell.Tab.0.center/0.0.1920.1080@0.0.1920.1080" timestamp="1590185054109" />
+    <state width="1899" height="303" key="GridCell.Tab.0.left" timestamp="1590185054108">
+      <screen x="0" y="0" width="1920" height="1080" />
     </state>
     <state width="936" height="267" key="GridCell.Tab.0.left/0.0.1920.1080/1920.0.1920.1200@0.0.1920.1080" timestamp="1590134164159" />
     <state width="1899" height="303" key="GridCell.Tab.0.left/0.0.1920.1080/1920.0.1920.1200@1920.0.1920.1200" timestamp="1590152944421" />
-    <state width="1899" height="303" key="GridCell.Tab.0.right" timestamp="1590152944421">
-      <screen x="1920" y="0" width="1920" height="1200" />
+    <state width="1899" height="303" key="GridCell.Tab.0.left/0.0.1920.1080@0.0.1920.1080" timestamp="1590185054108" />
+    <state width="1899" height="303" key="GridCell.Tab.0.right" timestamp="1590185054109">
+      <screen x="0" y="0" width="1920" height="1080" />
     </state>
     <state width="936" height="267" key="GridCell.Tab.0.right/0.0.1920.1080/1920.0.1920.1200@0.0.1920.1080" timestamp="1590134164160" />
     <state width="1899" height="303" key="GridCell.Tab.0.right/0.0.1920.1080/1920.0.1920.1200@1920.0.1920.1200" timestamp="1590152944421" />
+    <state width="1899" height="303" key="GridCell.Tab.0.right/0.0.1920.1080@0.0.1920.1080" timestamp="1590185054109" />
     <state x="2381" y="245" key="SettingsEditor" timestamp="1590143796667">
       <screen x="1920" y="0" width="1920" height="1200" />
     </state>

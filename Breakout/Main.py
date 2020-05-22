@@ -19,15 +19,15 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 50000
+REPLAY_START_SIZE = 10000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 50000
+ITERATIONS = 100000
 EPS = 1
 EPS_SUBTRACT = 1e-4
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 10000
+MEMORY_SIZE = 30000
 BATCH_SIZE = 32
 GAMMA = 0.99
 
@@ -35,7 +35,7 @@ GAMMA = 0.99
 SLOW_DOWN_RATE = 1000000
 
 "Plot Params"
-ITERATIONS_BEFORE_BENCHMARKING = 5000
+ITERATIONS_BEFORE_BENCHMARKING = 10000
 TEST_STEPS = 10000
 PRINT_OUT_RATE = 500
 
@@ -261,7 +261,7 @@ def run_training(Simple_model=False):
     memory = collections.deque([], MEMORY_SIZE)
     state = fill_up_memory(env, memory)
     reward_averages = train_model(env, model, state, memory)
-    model.save_weights('BreakoutModel_basic.model')
+    model.save_weights('BreakoutModel_basic_SIMPLE.model')
 
     random_reward_average = get_random_reward_average()
     plot_reward_per_epoch(reward_averages, random_reward_average)
@@ -290,20 +290,27 @@ def plot_reward_per_epoch(reward_averages, random_reward_average):
     plt.savefig('RewardPlot.png')
 
 
-def run_train_existing_model(model_path):
+def run_train_existing_model(model_path, Simple_model=False):
     env = init_test_environment()
-    model = atari_model(N_ACTIONS)
+    if Simple_model:
+        model = atari_model_simple(N_ACTIONS)
+    else:
+        model = atari_model(N_ACTIONS)
     model.load_weights(model_path)
 
     # memory = RingBuf(10000)
     memory = collections.deque([], MEMORY_SIZE)
     state = fill_up_memory(env, memory)
-    train_model(env, model, state, memory)
-    model.save('BreakoutModel_basic_200k.model')
+    reward_averages = train_model(env, model, state, memory)
+    model.save_weights('BreakoutModel_basic_SIMPLE1.model')
+
+    random_reward_average = get_random_reward_average()
+    plot_reward_per_epoch(reward_averages, random_reward_average)
 
 def run_model(model_path, slow_down):
     env = init_test_environment()
-    model = atari_model(N_ACTIONS)
+    #model = atari_model(N_ACTIONS)
+    model = atari_model_simple(N_ACTIONS)
     model.load_weights(model_path)
     run_game_with_model(env, model, slow_down)
 
@@ -486,10 +493,10 @@ def test_array_transform():
 
 
 if __name__ == '__main__':
-    run_training(Simple_model=True)
-    #run_train_existing_model("BreakoutModel_basic_200k.model")
+    #run_training(Simple_model=True)
+    run_train_existing_model("BreakoutModel_basic.model", Simple_model=True)
 
-    #run_model("BreakoutModel_basic_200k.model", slow_down=False)
+    #run_model("BreakoutModel_basic.model", slow_down=False)
     #run_model("BreakoutModel_basic.model", slow_down=False)
     #run_model("BreakoutModel_basic_200000Iterations.model", slow_down=False)
 
