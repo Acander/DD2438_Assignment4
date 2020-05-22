@@ -5,6 +5,7 @@ import keras
 import random
 import collections
 import matplotlib.pyplot as plt
+import tensorflow as tf
 
 # TODO Change environment to Breakout-v0 and implement frame skipping
 # TODO Research Hubber Loss
@@ -18,15 +19,15 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 20000
+REPLAY_START_SIZE = 5000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 1000000
+ITERATIONS = 50000
 EPS = 1
-EPS_SUBTRACT = 1e-6
+EPS_SUBTRACT = 1e-4
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 200000
+MEMORY_SIZE = 10000
 BATCH_SIZE = 32
 GAMMA = 0.99
 
@@ -34,8 +35,9 @@ GAMMA = 0.99
 SLOW_DOWN_RATE = 1000000
 
 "Plot Params"
-ITERATIONS_BEFORE_BENCHMARKING = 100000
+ITERATIONS_BEFORE_BENCHMARKING = 5000
 TEST_STEPS = 10000
+PRINT_OUT_RATE = 500
 
 ################################################################
 '''Pre-processing Functions'''
@@ -76,7 +78,8 @@ def fit_batch(model, batch):
 
     # First, predict the Q values of the next states. Note how we are passing ones as the mask.
     #print(np.shape(next_states))
-    next_Q_values = model.predict([next_states, np.ones(np.shape(actions))])
+    #next_Q_values = model.predict([next_states, np.ones(np.shape(actions))])
+    next_Q_values = model.predict([np.array(next_states), tf.cast(np.array(actions), tf.float32)])
     #print(next_Q_values)
     # The Q values of the terminal states is 0 by definition, so override them
     next_Q_values[is_terminal] = 0
@@ -86,7 +89,7 @@ def fit_batch(model, batch):
     # the targets by the actions.
     #print(actions)
     model.fit(
-        [start_states, actions], actions * Q_values[:, None], nb_epoch=1, batch_size=len(start_states), verbose=0)
+        [np.array(start_states), tf.cast(np.array(actions), tf.float32)], actions * Q_values[:, None], epochs=1, batch_size=len(start_states), verbose=0)
 
 
 def atari_model(n_actions):
@@ -118,6 +121,38 @@ def atari_model(n_actions):
 
     return model
 
+
+def atari_model_simple(n_actions):
+    # We assume a tensorflow backend here
+    ATARI_SHAPE = (105, 80, 4)
+    # With the functional API we need to define the inputs.
+    frames_input = tf.keras.layers.Input(ATARI_SHAPE, name='frames')
+    actions_input = tf.keras.layers.Input((n_actions,), name='mask')
+
+    # Assuming that the input frames are still encoded from 0 to 255. Transforming to [0, 1].
+    normalized = tf.keras.layers.Lambda(lambda x: tf.cast(x, tf.float32) / 255.0)(frames_input)
+
+    # "The first hidden layer convolves 16 8×8 filters with stride 4 with the input image and applies a rectifier nonlinearity."
+    conv_1 = tf.keras.layers.Conv2D(16, (8, 8), strides=(4, 4), activation='relu')(normalized)
+    # Flattening the second convolutional layer.
+    conv_flattened = tf.keras.layers.Flatten()(conv_1)
+    # "The final hidden layer is fully-connected and consists of 256 rectifier units."
+    hidden = tf.keras.layers.Dense(32, activation='relu')(conv_flattened)
+    # "The output layer is a fully-connected linear layer with a single output for each valid action."
+    output = tf.keras.layers.Dense(n_actions)(hidden)
+    # Finally, we multiply the output by the mask!
+    filtered_output = tf.keras.layers.multiply([output, actions_input])
+
+
+    model = tf.keras.models.Model(inputs=[frames_input, actions_input], outputs=filtered_output)
+    optimizer = tf.keras.optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
+    model.compile(optimizer, loss='mse')
+
+    model.summary()
+
+    return model
+
+
 def q_iteration(env, model, start_state, iteration, memory, reward_so_far):
     # Choose epsilon based on the iteration
     epsilon = get_epsilon_for_iteration(iteration)
@@ -134,24 +169,19 @@ def q_iteration(env, model, start_state, iteration, memory, reward_so_far):
 
     # Play one game iteration (note: according to the next paper, you should actually play 4 times here)
     frame, reward, is_done, _ = env.step(action)
-    #reward_so_far += reward
     revamp_game(env, is_done)
 
     start_state_list = list(start_state)
-    #start_state_list = np.reshape(start_state_list, (105, 80, 4))
     start_state_list = np.transpose(start_state_list, (1, 2, 0))
 
     frame = preprocess(frame)
     state = construct_state(start_state, frame)
-    #state_list = list(state)
-    #print(np.shape(state_list))
-    #state_list = np.reshape(state_list, (105, 80, 4))
     state_list = np.transpose(start_state, (1, 2, 0))
-    #print(np.shape(state_list))
 
     action = ACTIONS_encoded[action]
-    element = start_state_list, action, reward, state_list, is_done
+    element = np.array(start_state_list), action, reward, np.array(state_list), is_done
     memory.append(element)
+
     # Sample and fit
     batch = memory_sample(memory)
     fit_batch(model, batch)
@@ -166,10 +196,7 @@ def get_epsilon_for_iteration(iteration):
 
 def choose_best_action(model, state):
     state_list = list(state)
-    #print(np.shape(state_list))
     state_list = np.transpose(state_list, (1, 2, 0))
-    #best_action_index = np.argmax(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
-    #print(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
     best_action_index = np.argmax(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
     #print(best_action_index)
     return best_action_index
@@ -186,13 +213,16 @@ def train_model(env, model, state, memory):
         state = q_iteration(env, model, state, i, memory, reward_so_far)
 
         if i % ITERATIONS_BEFORE_BENCHMARKING == 0:
+            #print("Testing")
             for _ in range(TEST_STEPS):
                 reward, state = test_model(env, model, state)
                 reward_so_far += reward
 
             reward_averages.append(reward_so_far/TEST_STEPS)
-            print("Iteration -> ", i)
+            #print("Iteration -> ", i)
 
+        if i % PRINT_OUT_RATE == 0:
+            print("Iteration -> ", i)
         #print("Iteration -> ", i)
         i += 1
 
@@ -211,23 +241,27 @@ def init_test_environment():
     env = gym.make('Breakout-v0')
     # Reset it, returns the starting frame
     frame = env.reset()
-    print(env.action_space)
-    print(env.unwrapped.get_action_meanings())
-    print(env.reward_range)
+    #print(env.action_space)
+    #print(env.unwrapped.get_action_meanings())
+    #print(env.reward_range)
     # print(np.shape(frame))
     # Render
     #env.render()
     return env
 
-def run_training():
+def run_training(Simple_model=False):
     env = init_test_environment()
-    model = atari_model(N_ACTIONS)
+
+    if Simple_model:
+        model = atari_model_simple(N_ACTIONS)
+    else:
+        model = atari_model(N_ACTIONS)
 
     # memory = RingBuf(10000)
     memory = collections.deque([], MEMORY_SIZE)
     state = fill_up_memory(env, memory)
     reward_averages = train_model(env, model, state, memory)
-    model.save('BreakoutModel_basic.model')
+    model.save_weights('BreakoutModel_basic.model')
 
     random_reward_average = get_random_reward_average()
     plot_reward_per_epoch(reward_averages, random_reward_average)
@@ -334,7 +368,7 @@ def fill_up_memory(env, memory):
         state_list = np.transpose(start_state, (1, 2, 0))
 
         action = ACTIONS_encoded[action]
-        element = start_state_list, action, reward, state_list, is_done
+        element = np.array(start_state_list), action, reward, np.array(state_list), is_done
         memory.append(element)
         i += 1
         start_state = state
@@ -452,7 +486,7 @@ def test_array_transform():
 
 
 if __name__ == '__main__':
-    run_training()
+    run_training(Simple_model=True)
     #run_train_existing_model("BreakoutModel_basic_200k.model")
 
     #run_model("BreakoutModel_basic_200k.model", slow_down=False)
