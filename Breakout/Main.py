@@ -19,7 +19,7 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 5000
+REPLAY_START_SIZE = 50000
 STATE_SIZE = 4
 
 '''Training params'''
@@ -78,8 +78,8 @@ def fit_batch(model, batch):
 
     # First, predict the Q values of the next states. Note how we are passing ones as the mask.
     #print(np.shape(next_states))
-    #next_Q_values = model.predict([next_states, np.ones(np.shape(actions))])
-    next_Q_values = model.predict([np.array(next_states), tf.cast(np.array(actions), tf.float32)])
+    next_Q_values = model.predict([np.array(next_states), np.ones(np.shape(actions))])
+    #next_Q_values = model.predict([np.array(next_states), tf.cast(np.array(actions), tf.float32)])
     #print(next_Q_values)
     # The Q values of the terminal states is 0 by definition, so override them
     next_Q_values[is_terminal] = 0
