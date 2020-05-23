@@ -19,15 +19,15 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 50000
+REPLAY_START_SIZE = 50
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 300000
+ITERATIONS = 1000
 EPS = 1
 EPS_SUBTRACT = 1e-5
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 100000
+MEMORY_SIZE = 100
 BATCH_SIZE = 32
 GAMMA = 0.99
 
@@ -36,7 +36,7 @@ SLOW_DOWN_RATE = 1000000
 
 "Plot Params"
 ITERATIONS_BEFORE_BENCHMARKING = 50000
-TEST_STEPS = 10000
+TEST_STEPS = 100
 PRINT_OUT_RATE = 10000
 
 ################################################################
@@ -169,7 +169,7 @@ def atari_model_simple(n_actions):
     # Flattening the second convolutional layer.
     conv_flattened = tf.keras.layers.Flatten()(conv_1)
     # "The final hidden layer is fully-connected and consists of 256 rectifier units."
-    hidden = tf.keras.layers.Dense(32, activation='relu')(conv_flattened)
+    hidden = tf.keras.layers.Dense(128, activation='relu')(conv_flattened)
     # "The output layer is a fully-connected linear layer with a single output for each valid action."
     output = tf.keras.layers.Dense(n_actions)(hidden)
     # Finally, we multiply the output by the mask!
@@ -476,8 +476,8 @@ def get_random_reward_average():
 
 
 if __name__ == '__main__':
-    run_training(Simple_model=False)
-    #run_train_existing_model("BreakoutModel_basic_SIMPLE1.model", Simple_model=True, fill_with_random=False)
+    #run_training(Simple_model=True)
+    run_train_existing_model("BreakoutModel_basic_SIMPLE.model", Simple_model=True)
 
     #run_model("BreakoutModel_basic_SIMPLE1.model", slow_down=False, render=False)
 
