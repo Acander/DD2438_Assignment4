@@ -1,2 +1,2 @@
-model_checkpoint_path: "BreakoutModel_basic.model"
-all_model_checkpoint_paths: "BreakoutModel_basic.model"
+model_checkpoint_path: "BreakoutModel_basic_SIMPLE.model"
+all_model_checkpoint_paths: "BreakoutModel_basic_SIMPLE.model"

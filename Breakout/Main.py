@@ -6,6 +6,7 @@ import random
 import collections
 import matplotlib.pyplot as plt
 import tensorflow as tf
+from scipy.special import softmax
 
 # TODO Change environment to Breakout-v0 and implement frame skipping
 # TODO Research Hubber Loss
@@ -25,7 +26,7 @@ STATE_SIZE = 4
 '''Training params'''
 ITERATIONS = 100000
 EPS = 1
-EPS_SUBTRACT = 1e-4
+EPS_SUBTRACT = 1e-5
 #EPS_SUBTRACT = 0.01
 MEMORY_SIZE = 30000
 BATCH_SIZE = 32
@@ -37,7 +38,7 @@ SLOW_DOWN_RATE = 1000000
 "Plot Params"
 ITERATIONS_BEFORE_BENCHMARKING = 10000
 TEST_STEPS = 10000
-PRINT_OUT_RATE = 500
+PRINT_OUT_RATE = 5000
 
 ################################################################
 '''Pre-processing Functions'''
@@ -194,12 +195,22 @@ def get_epsilon_for_iteration(iteration):
         return eps
     return 0.1
 
-def choose_best_action(model, state):
+'''def choose_best_action(model, state):
     state_list = list(state)
     state_list = np.transpose(state_list, (1, 2, 0))
     best_action_index = np.argmax(model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))]))
     #print(best_action_index)
-    return best_action_index
+    return best_action_index'''
+
+def choose_best_action(model, state):
+    state_list = list(state)
+    state_list = np.transpose(state_list, (1, 2, 0))
+    Q_values = model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))])[0]
+    #Q_sum = np.sum(Q_values)
+    #Q_prob= Q_values/Q_sum
+    Q_prob = softmax(Q_values)
+    action_index = np.random.choice(a=np.arange(0, N_ACTIONS), size=1, p=Q_prob)[0]
+    return action_index
 
 def memory_sample(memory):
     return random.sample(memory, BATCH_SIZE)
@@ -249,7 +260,7 @@ def init_test_environment():
     #env.render()
     return env
 
-def run_training(Simple_model=False):
+def run_training(Simple_model=False, fill_with_random=True):
     env = init_test_environment()
 
     if Simple_model:
@@ -259,22 +270,25 @@ def run_training(Simple_model=False):
 
     # memory = RingBuf(10000)
     memory = collections.deque([], MEMORY_SIZE)
-    state = fill_up_memory(env, memory)
+    state = fill_up_memory(env, memory, model, fill_with_random)
     reward_averages = train_model(env, model, state, memory)
     model.save_weights('BreakoutModel_basic_SIMPLE.model')
 
-    random_reward_average = get_random_reward_average()
-    plot_reward_per_epoch(reward_averages, random_reward_average)
+    plot_reward_per_epoch(reward_averages)
 
-def plot_reward_per_epoch(reward_averages, random_reward_average):
-    print("Number of Epochs:", ITERATIONS/ITERATIONS_BEFORE_BENCHMARKING)
-    data_size = np.size(reward_averages)
-    random_reward_averages = np.full(data_size, random_reward_average)
-    plt.plot(np.arange(data_size), np.array(reward_averages), color='blue', label='Model')
-    plt.plot(np.arange(data_size), random_reward_averages, color='red', label='Random')
+def plot_reward_per_epoch(reward_averages):
+    random_reward_averages = []
+    epochs = int(ITERATIONS / ITERATIONS_BEFORE_BENCHMARKING)
+    print(epochs)
+    for i in range(epochs):
+        print(i)
+        random_reward_averages.append(get_random_reward_average())
+
+    plt.plot(np.arange(epochs), np.array(reward_averages), color='blue', label='Model')
+    plt.plot(np.arange(epochs), random_reward_averages, color='red', label='Random')
 
     xMin = 0
-    xMax = data_size
+    xMax = epochs
 
     concat_list = np.concatenate((reward_averages, random_reward_averages))
     yMin = np.min(concat_list)
@@ -290,7 +304,7 @@ def plot_reward_per_epoch(reward_averages, random_reward_average):
     plt.savefig('RewardPlot.png')
 
 
-def run_train_existing_model(model_path, Simple_model=False):
+def run_train_existing_model(model_path, Simple_model=False, fill_with_random=True):
     env = init_test_environment()
     if Simple_model:
         model = atari_model_simple(N_ACTIONS)
@@ -300,21 +314,20 @@ def run_train_existing_model(model_path, Simple_model=False):
 
     # memory = RingBuf(10000)
     memory = collections.deque([], MEMORY_SIZE)
-    state = fill_up_memory(env, memory)
+    state = fill_up_memory(env, memory, model, fill_with_random)
     reward_averages = train_model(env, model, state, memory)
     model.save_weights('BreakoutModel_basic_SIMPLE1.model')
 
-    random_reward_average = get_random_reward_average()
-    plot_reward_per_epoch(reward_averages, random_reward_average)
+    plot_reward_per_epoch(reward_averages)
 
-def run_model(model_path, slow_down):
+def run_model(model_path, slow_down=False, render=False):
     env = init_test_environment()
     #model = atari_model(N_ACTIONS)
     model = atari_model_simple(N_ACTIONS)
     model.load_weights(model_path)
-    run_game_with_model(env, model, slow_down)
+    run_game_with_model(env, model, slow_down, render)
 
-def run_game_with_model(env, model, slow_down):
+def run_game_with_model(env, model, slow_down, render):
     nr_games = 1
     tot_reward = 0
     high_score = tot_reward
@@ -324,12 +337,12 @@ def run_game_with_model(env, model, slow_down):
     while True:
         action = choose_best_action(model, state)
         frame, reward, is_done, info = env.step(action)
-        print(reward)
         tot_reward += reward
         if is_done:
             tot_reward, high_score, nr_games = note_game(tot_reward, high_score, nr_games)
         revamp_game(env, is_done)
-        env.render()
+        if render:
+            env.render()
         frame = preprocess(frame)
         state.append(frame)
         if slow_down:
@@ -351,7 +364,7 @@ def apply_slow_down_game():
     while i < SLOW_DOWN_RATE:
         i += 1
 
-def fill_up_memory(env, memory):
+def fill_up_memory(env, memory, model, fill_with_random):
     action = env.action_space.sample()
     start_state, _, _ = init_state(env, action)
     state = 0
@@ -359,7 +372,10 @@ def fill_up_memory(env, memory):
     print("_____________________________Prepare Replay Memory________________________________________")
     while i < REPLAY_START_SIZE:
         # Perform a random action, returns the new frame, reward and whether the game is over
-        action = env.action_space.sample()
+        if fill_with_random:
+            action = env.action_space.sample()
+        else:
+            action = choose_best_action(model, start_state)
         frame, reward, is_done, _ = env.step(action)
         revamp_game(env, is_done)
 
@@ -420,91 +436,15 @@ def get_random_reward_average():
         i += 1
     return revard_average / ITERATIONS_BEFORE_BENCHMARKING
 
-def memory_test():
-    # LIFO
-    '''memory = collections.deque([], 5)
-    memory.append((1, 2, 3))
-    print(memory.__len__())
-    memory.append((4, 5, 6))
-    print(memory.__len__())
-    memory.append((7, 8, 9))
-    print(memory.__len__())
-    print(memory.pop())
-    print(memory.__len__())
-    print(memory.pop())
-    print(memory.__len__())'''
-
-    # FIFO
-    memory = collections.deque([], 5)
-    memory.append([1, 2, 3])
-    print(memory.__len__())
-    memory.append([4, 5, 6])
-    print(memory.__len__())
-    memory.append([7, 8, 9])
-    print(memory.__len__())
-    memory.append([10, 11, 12])
-    print(memory.__len__())
-    memory.append([13, 14, 15])
-    print(memory.__len__())
-    memory.append([16, 17, 18])
-    print(memory.__len__())
-    print(memory.popleft()) # (4, 5, 6) is expected
-    #print(memory.pop()) # (16, 17, 18) is expected
-
-    print(np.shape(list(memory)))
-
-    '''memoryCopy = copy.copy(memory)
-    print("Copy: ", memoryCopy.__len__())
-    print("Original: ", memory.__len__())
-    memory.popleft()
-    print("Copy: ", memoryCopy.__len__())
-    print("Original: ", memory.__len__())
-    memory.popleft()
-    print("Copy: ", memoryCopy.__len__())
-    print("Original: ", memory.__len__())'''
-
-    #indeces = random.randint(5, 2)
-    #print(memory.__getitem__(indeces))
-    #print(random.sample(memory, 2))
-
-    '''batch = random.sample(memory, 2)
-    print("Batch: ", batch)
-    first, second, last = map(list, zip(*batch))
-    print("First: ", first)
-    print("Second: ", second)
-    print("Last: ", last)'''
-
-def gym_output_test():
-    # Create a breakout environment
-    env = gym.make('Breakout-v0')
-    # Reset it, returns the starting frame
-    frame = env.reset()
-
-
-    while True:
-        print(env.action_space.sample())
-
-
-def test_array_transform():
-    array = [[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[9, 10], [11, 12]]]
-
-    print(array)
-    print(np.reshape(array, (2, 2, 3)))
-
 
 if __name__ == '__main__':
     #run_training(Simple_model=True)
-    run_train_existing_model("BreakoutModel_basic.model", Simple_model=True)
+    run_train_existing_model("BreakoutModel_basic_SIMPLE1.model", Simple_model=True, fill_with_random=False)
 
-    #run_model("BreakoutModel_basic.model", slow_down=False)
+    #run_model("BreakoutModel_basic_SIMPLE1.model", slow_down=False, render=False)
     #run_model("BreakoutModel_basic.model", slow_down=False)
     #run_model("BreakoutModel_basic_200000Iterations.model", slow_down=False)
 
 
 ################################################################
     #Tests:
-
-    #run_random()
-    #memory_test()
-    #gym_output_test()
-    #test_array_transform()
