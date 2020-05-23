@@ -19,15 +19,15 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 50
+REPLAY_START_SIZE = 50000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 1000
+ITERATIONS = 300000
 EPS = 1
 EPS_SUBTRACT = 1e-5
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 100
+MEMORY_SIZE = 100000
 BATCH_SIZE = 32
 GAMMA = 0.99
 
@@ -36,7 +36,7 @@ SLOW_DOWN_RATE = 1000000
 
 "Plot Params"
 ITERATIONS_BEFORE_BENCHMARKING = 50000
-TEST_STEPS = 100
+TEST_STEPS = 10000
 PRINT_OUT_RATE = 10000
 
 ################################################################
@@ -476,8 +476,8 @@ def get_random_reward_average():
 
 
 if __name__ == '__main__':
-    #run_training(Simple_model=True)
-    run_train_existing_model("BreakoutModel_basic_SIMPLE.model", Simple_model=True)
+    run_training(Simple_model=False)
+    #run_train_existing_model("BreakoutModel_basic_SIMPLE.model", Simple_model=True)
 
     #run_model("BreakoutModel_basic_SIMPLE1.model", slow_down=False, render=False)
 
