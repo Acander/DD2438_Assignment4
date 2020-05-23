@@ -1,7 +1,6 @@
 # Import the gym module
 import gym
 import numpy as np
-import keras
 import random
 import collections
 import matplotlib.pyplot as plt
@@ -20,15 +19,15 @@ ACTIONS_encoded = [[1, 0, 0, 0],
                     [0, 0, 1, 0],
                    [0, 0, 0, 1]]
 N_ACTIONS = 4
-REPLAY_START_SIZE = 10000
+REPLAY_START_SIZE = 50000
 STATE_SIZE = 4
 
 '''Training params'''
-ITERATIONS = 100000
+ITERATIONS = 300000
 EPS = 1
-EPS_SUBTRACT = 1e-4
+EPS_SUBTRACT = 1e-5
 #EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 30000
+MEMORY_SIZE = 100000
 BATCH_SIZE = 32
 GAMMA = 0.99
 
@@ -36,9 +35,9 @@ GAMMA = 0.99
 SLOW_DOWN_RATE = 1000000
 
 "Plot Params"
-ITERATIONS_BEFORE_BENCHMARKING = 10000
+ITERATIONS_BEFORE_BENCHMARKING = 50000
 TEST_STEPS = 10000
-PRINT_OUT_RATE = 5000
+PRINT_OUT_RATE = 10000
 
 ################################################################
 '''Pre-processing Functions'''
@@ -88,7 +87,6 @@ def fit_batch(model, batch):
     Q_values = rewards + GAMMA * np.max(next_Q_values, axis=1)
     # Fit the keras model. Note how we are passing the actions as the mask and multiplying
     # the targets by the actions.
-    #print(actions)
     model.fit(
         [np.array(start_states), tf.cast(np.array(actions), tf.float32)], actions * Q_values[:, None], epochs=1, batch_size=len(start_states), verbose=0)
 
@@ -97,28 +95,30 @@ def atari_model(n_actions):
     # We assume a tensorflow backend here
     ATARI_SHAPE = (105, 80, 4)
     # With the functional API we need to define the inputs.
-    frames_input = keras.layers.Input(ATARI_SHAPE, name='frames')
-    actions_input = keras.layers.Input((n_actions,), name='mask')
+    frames_input = tf.keras.layers.Input(ATARI_SHAPE, name='frames')
+    actions_input = tf.keras.layers.Input((n_actions,), name='mask')
 
     # Assuming that the input frames are still encoded from 0 to 255. Transforming to [0, 1].
-    normalized = keras.layers.Lambda(lambda x: x / 255.0)(frames_input)
+    normalized = tf.keras.layers.Lambda(lambda x: tf.cast(x, tf.float32) / 255.0)(frames_input)
 
     # "The first hidden layer convolves 16 8×8 filters with stride 4 with the input image and applies a rectifier nonlinearity."
-    conv_1 = keras.layers.convolutional.Convolution2D(16, (8, 8), strides=(4, 4), activation='relu')(normalized)
+    conv_1 = tf.keras.layers.Conv2D(16, (8, 8), strides=(4, 4), activation='relu')(normalized)
     # "The second hidden layer convolves 32 4×4 filters with stride 2, again followed by a rectifier nonlinearity."
-    conv_2 = keras.layers.convolutional.Convolution2D(32, (4, 4), strides=(2, 2), activation='relu')(conv_1)
+    conv_2 = tf.keras.layers.Conv2D(32, (4, 4), strides=(2, 2), activation='relu')(conv_1)
     # Flattening the second convolutional layer.
-    conv_flattened = keras.layers.core.Flatten()(conv_2)
+    conv_flattened = tf.keras.layers.Flatten()(conv_2)
     # "The final hidden layer is fully-connected and consists of 256 rectifier units."
-    hidden = keras.layers.Dense(256, activation='relu')(conv_flattened)
+    hidden = tf.keras.layers.Dense(256, activation='relu')(conv_flattened)
     # "The output layer is a fully-connected linear layer with a single output for each valid action."
-    output = keras.layers.Dense(n_actions)(hidden)
+    output = tf.keras.layers.Dense(n_actions)(hidden)
     # Finally, we multiply the output by the mask!
-    filtered_output = keras.layers.multiply([output, actions_input])
+    filtered_output = tf.keras.layers.multiply([output, actions_input])
 
-    model = keras.models.Model(input=[frames_input, actions_input], output=filtered_output)
-    optimizer = keras.optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
+    model = tf.keras.models.Model(inputs=[frames_input, actions_input], outputs=filtered_output)
+    optimizer = tf.keras.optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
     model.compile(optimizer, loss='mse')
+
+    model.summary()
 
     return model
 
@@ -154,7 +154,7 @@ def atari_model_simple(n_actions):
     return model
 
 
-def q_iteration(env, model, start_state, iteration, memory, reward_so_far):
+def q_iteration(env, model, start_state, iteration, memory):
     # Choose epsilon based on the iteration
     epsilon = get_epsilon_for_iteration(iteration)
 
@@ -206,8 +206,6 @@ def choose_best_action(model, state):
     state_list = list(state)
     state_list = np.transpose(state_list, (1, 2, 0))
     Q_values = model.predict([np.reshape(state_list, (1, 105, 80, 4)), np.ones((1, N_ACTIONS))])[0]
-    #Q_sum = np.sum(Q_values)
-    #Q_prob= Q_values/Q_sum
     Q_prob = softmax(Q_values)
     action_index = np.random.choice(a=np.arange(0, N_ACTIONS), size=1, p=Q_prob)[0]
     return action_index
@@ -221,7 +219,7 @@ def train_model(env, model, state, memory):
     reward_averages = []
     print("_____________________________Starting Training________________________________________")
     while ITERATIONS > i:
-        state = q_iteration(env, model, state, i, memory, reward_so_far)
+        state = q_iteration(env, model, state, i, memory)
 
         if i % ITERATIONS_BEFORE_BENCHMARKING == 0:
             #print("Testing")
@@ -438,12 +436,10 @@ def get_random_reward_average():
 
 
 if __name__ == '__main__':
-    #run_training(Simple_model=True)
-    run_train_existing_model("BreakoutModel_basic_SIMPLE1.model", Simple_model=True, fill_with_random=False)
+    run_training(Simple_model=False)
+    #run_train_existing_model("BreakoutModel_basic_SIMPLE1.model", Simple_model=True, fill_with_random=False)
 
     #run_model("BreakoutModel_basic_SIMPLE1.model", slow_down=False, render=False)
-    #run_model("BreakoutModel_basic.model", slow_down=False)
-    #run_model("BreakoutModel_basic_200000Iterations.model", slow_down=False)
 
 
 ################################################################
