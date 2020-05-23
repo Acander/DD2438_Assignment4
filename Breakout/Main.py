@@ -123,6 +123,37 @@ def atari_model(n_actions):
     return model
 
 
+'''def atari_model_simple(n_actions):
+    # We assume a tensorflow backend here
+    ATARI_SHAPE = (105, 80, 4)
+    # With the functional API we need to define the inputs.
+    frames_input = tf.keras.layers.Input(ATARI_SHAPE, name='frames')
+    actions_input = tf.keras.layers.Input((n_actions,), name='mask')
+
+    # Assuming that the input frames are still encoded from 0 to 255. Transforming to [0, 1].
+    normalized = tf.keras.layers.Lambda(lambda x: tf.cast(x, tf.float32) / 255.0)(frames_input)
+
+    # "The first hidden layer convolves 16 8×8 filters with stride 4 with the input image and applies a rectifier nonlinearity."
+    conv_1 = tf.keras.layers.Conv2D(16, (8, 8), strides=(4, 4), activation='relu')(normalized)
+    # Flattening the second convolutional layer.
+    conv_flattened = tf.keras.layers.Flatten()(conv_1)
+    # "The final hidden layer is fully-connected and consists of 256 rectifier units."
+    hidden = tf.keras.layers.Dense(32, activation='relu')(conv_flattened)
+    # "The output layer is a fully-connected linear layer with a single output for each valid action."
+    output = tf.keras.layers.Dense(n_actions)(hidden)
+    # Finally, we multiply the output by the mask!
+    filtered_output = tf.keras.layers.multiply([output, actions_input])
+
+
+    model = tf.keras.models.Model(inputs=[frames_input, actions_input], outputs=filtered_output)
+    optimizer = tf.keras.optimizers.RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
+    model.compile(optimizer, loss='mse')
+
+    model.summary()
+
+    return model'''
+
+
 def atari_model_simple(n_actions):
     # We assume a tensorflow backend here
     ATARI_SHAPE = (105, 80, 4)
@@ -271,6 +302,9 @@ def run_training(Simple_model=False, fill_with_random=True):
     state = fill_up_memory(env, memory, model, fill_with_random)
     reward_averages = train_model(env, model, state, memory)
     model.save_weights('BreakoutModel_basic_SIMPLE.model')
+    import pickle
+    with open("Memory.txt", "wb") as fp:  # Pickling
+        pickle.dump(list(memory), fp)
 
     plot_reward_per_epoch(reward_averages)
 
@@ -302,7 +336,7 @@ def plot_reward_per_epoch(reward_averages):
     plt.savefig('RewardPlot.png')
 
 
-def run_train_existing_model(model_path, Simple_model=False, fill_with_random=True):
+def run_train_existing_model(model_path, Simple_model=False):
     env = init_test_environment()
     if Simple_model:
         model = atari_model_simple(N_ACTIONS)
@@ -311,9 +345,15 @@ def run_train_existing_model(model_path, Simple_model=False, fill_with_random=Tr
     model.load_weights(model_path)
 
     # memory = RingBuf(10000)
-    memory = collections.deque([], MEMORY_SIZE)
-    state = fill_up_memory(env, memory, model, fill_with_random)
-    reward_averages = train_model(env, model, state, memory)
+    #memory = collections.deque([], MEMORY_SIZE)
+    #state = fill_up_memory(env, memory, model, fill_with_random)
+    import pickle
+    with open("Memory.txt", "rb") as fp:  # Unpickling
+        memory = pickle.load(fp)
+    memory = collections.deque(memory, MEMORY_SIZE)
+    action = env.action_space.sample()
+    start_state, _, _ = init_state(env, action)
+    reward_averages = train_model(env, model, start_state, memory)
     model.save_weights('BreakoutModel_basic_SIMPLE1.model')
 
     plot_reward_per_epoch(reward_averages)
