@@ -24,10 +24,10 @@ STATE_SIZE = 4
 
 '''Training params'''
 ITERATIONS = 300000
-EPS = 1
-EPS_SUBTRACT = 1e-5
-#EPS_SUBTRACT = 0.01
-MEMORY_SIZE = 100000
+EPS = 0.5
+#EPS_SUBTRACT = 1e-5
+EPS_SUBTRACT = 0
+MEMORY_SIZE = 150000
 BATCH_SIZE = 32
 GAMMA = 0.99
 
@@ -123,7 +123,7 @@ def atari_model(n_actions):
     return model
 
 
-'''def atari_model_simple(n_actions):
+def atari_model_simple(n_actions):
     # We assume a tensorflow backend here
     ATARI_SHAPE = (105, 80, 4)
     # With the functional API we need to define the inputs.
@@ -151,10 +151,10 @@ def atari_model(n_actions):
 
     model.summary()
 
-    return model'''
+    return model
 
 
-def atari_model_simple(n_actions):
+'''def atari_model_simple(n_actions):
     # We assume a tensorflow backend here
     ATARI_SHAPE = (105, 80, 4)
     # With the functional API we need to define the inputs.
@@ -182,7 +182,7 @@ def atari_model_simple(n_actions):
 
     model.summary()
 
-    return model
+    return model'''
 
 
 def q_iteration(env, model, start_state, iteration, memory):
@@ -246,14 +246,13 @@ def memory_sample(memory):
 
 def train_model(env, model, state, memory):
     i = 0
-    reward_so_far = 0
     reward_averages = []
     print("_____________________________Starting Training________________________________________")
     while ITERATIONS > i:
         state = q_iteration(env, model, state, i, memory)
 
         if i % ITERATIONS_BEFORE_BENCHMARKING == 0:
-            #print("Testing")
+            reward_so_far = 0
             for _ in range(TEST_STEPS):
                 reward, state = test_model(env, model, state)
                 reward_so_far += reward
@@ -289,7 +288,7 @@ def init_test_environment():
     #env.render()
     return env
 
-def run_training(Simple_model=False, fill_with_random=True):
+def run_training(Simple_model, fill_with_random):
     env = init_test_environment()
 
     if Simple_model:
@@ -301,9 +300,9 @@ def run_training(Simple_model=False, fill_with_random=True):
     memory = collections.deque([], MEMORY_SIZE)
     state = fill_up_memory(env, memory, model, fill_with_random)
     reward_averages = train_model(env, model, state, memory)
-    model.save_weights('BreakoutModel_basic_SIMPLE.model')
+    model.save_weights('BreakoutModel_basic_1conv_32Dense.model')
     import pickle
-    with open("Memory.txt", "wb") as fp:  # Pickling
+    with open("Memory_1conv_32Dense.txt", "wb") as fp:  # Pickling
         pickle.dump(list(memory), fp)
 
     plot_reward_per_epoch(reward_averages)
@@ -336,7 +335,7 @@ def plot_reward_per_epoch(reward_averages):
     plt.savefig('RewardPlot.png')
 
 
-def run_train_existing_model(model_path, Simple_model=False):
+def run_train_existing_model(model_path, Simple_model):
     env = init_test_environment()
     if Simple_model:
         model = atari_model_simple(N_ACTIONS)
@@ -344,9 +343,6 @@ def run_train_existing_model(model_path, Simple_model=False):
         model = atari_model(N_ACTIONS)
     model.load_weights(model_path)
 
-    # memory = RingBuf(10000)
-    #memory = collections.deque([], MEMORY_SIZE)
-    #state = fill_up_memory(env, memory, model, fill_with_random)
     import pickle
     with open("Memory.txt", "rb") as fp:  # Unpickling
         memory = pickle.load(fp)
@@ -354,7 +350,10 @@ def run_train_existing_model(model_path, Simple_model=False):
     action = env.action_space.sample()
     start_state, _, _ = init_state(env, action)
     reward_averages = train_model(env, model, start_state, memory)
-    model.save_weights('BreakoutModel_basic_SIMPLE1.model')
+    model.save_weights('BreakoutModel_basic_SIMPLE.model')
+    import pickle
+    with open("Memory.txt", "wb") as fp:  # Pickling
+        pickle.dump(list(memory), fp)
 
     plot_reward_per_epoch(reward_averages)
 
@@ -476,10 +475,10 @@ def get_random_reward_average():
 
 
 if __name__ == '__main__':
-    run_training(Simple_model=False)
-    #run_train_existing_model("BreakoutModel_basic_SIMPLE.model", Simple_model=True)
+    #run_training(Simple_model=True, fill_with_random=True)
+    run_train_existing_model("BreakoutModel_basic_SIMPLE.model", Simple_model=False)
 
-    #run_model("BreakoutModel_basic_SIMPLE1.model", slow_down=False, render=False)
+    #run_model("BreakoutModel_basic_SIMPLE2.model", slow_down=False, render=False)
 
 
 ################################################################
