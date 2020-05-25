@@ -24,8 +24,8 @@ STATE_SIZE = 4
 
 '''Training params'''
 ITERATIONS = 100000
-EPS = 1
-EPS_SUBTRACT = 1e-4
+EPS = 0.1
+EPS_SUBTRACT = 0
 MEMORY_SIZE = 30000
 BATCH_SIZE = 32
 GAMMA = 0.99
@@ -34,7 +34,7 @@ GAMMA = 0.99
 SLOW_DOWN_RATE = 1000000
 
 "Plot Params"
-ITERATIONS_BEFORE_BENCHMARKING = 50000
+ITERATIONS_BEFORE_BENCHMARKING = 10000
 TEST_STEPS = 10000
 PRINT_OUT_RATE = 10000
 
@@ -343,7 +343,7 @@ def run_train_existing_model(model_path, Simple_model):
     model.load_weights(model_path)
 
     import pickle
-    with open("Memory_1conv_32Dense.txt", "rb") as fp:  # Unpickling
+    with open("Memory.txt", "rb") as fp:  # Unpickling
         memory = pickle.load(fp)
     memory = collections.deque(memory, MEMORY_SIZE)
     action = env.action_space.sample()
@@ -351,7 +351,7 @@ def run_train_existing_model(model_path, Simple_model):
     reward_averages = train_model(env, model, start_state, memory)
     model.save_weights(model_path)
     import pickle
-    with open("Memory_1conv_32Dense.txt", "wb") as fp:  # Pickling
+    with open("Memory2.txt", "wb") as fp:  # Pickling
         pickle.dump(list(memory), fp)
 
     plot_reward_per_epoch(reward_averages)
@@ -474,10 +474,10 @@ def get_random_reward_average():
 
 
 if __name__ == '__main__':
-    run_training(Simple_model=True, fill_with_random=True)
+    #run_training(Simple_model=True, fill_with_random=True)
     #run_train_existing_model("BreakoutModel_basic_1conv_32Dense.model", Simple_model=True)
 
-    #run_model("BreakoutModel_basic_SIMPLE1.model", slow_down=False, render=True)
+    run_model("BreakoutModel_basic_SIMPLE1.model", slow_down=False, render=True)
 
 
 ################################################################
